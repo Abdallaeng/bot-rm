@@ -5,6 +5,7 @@ import { flushPending } from './data/analytics.js';
 import { initSearch } from './ui/search.js';
 import { renderStats, renderFooter } from './ui/home.js';
 import { LS } from './lib/storage.js';
+import { initTheme } from './ui/theme.js';
 
 function showMessage(title, message, withRetry = true) {
   $('#main').innerHTML = `<div class="gate"><div class="card"><h2>${title}</h2><p>${esc(message)}</p>${withRetry ? '<button class="btn pri" onclick="location.reload()">إعادة المحاولة</button>' : ''}</div></div>`;
@@ -39,6 +40,7 @@ async function boot() {
   document.addEventListener('botrm:data', renderStats);   // بعد نشر تحديث من لوحة الإدارة
 }
 
+initTheme();
 window.addEventListener('offline', () => toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة'));
 window.addEventListener('online', () => { toast('عاد الاتصال'); flushPending(); });
 $('#adminBtn').addEventListener('click', async () => (await import('./ui/admin.js')).openAdmin());

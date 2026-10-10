@@ -1,20 +1,22 @@
 /* الألوان — مستمدة من شعار الشركة. light-dark() يتبع إعداد الجهاز تلقائياً */
 :root {
   color-scheme: light dark;
-  --bg:    light-dark(#f3f7f8, #06222b);
-  --bg2:   light-dark(#e7eff2, #0a2f3b);
-  --surf:  light-dark(rgba(255,255,255,.94), rgba(10,47,59,.82));
+  --bg:    light-dark(#eef3f6, #06222b);
+  --bg2:   light-dark(#e6eef2, #0a2f3b);
+  --surf:  light-dark(rgba(255,255,255,.96), rgba(10,47,59,.82));
   --surf2: light-dark(#eef5f7, #0f3a48);
-  --line:  light-dark(rgba(20,90,110,.16), rgba(150,215,235,.17));
+  --line:  light-dark(rgba(15,80,100,.17), rgba(150,215,235,.17));
   --tx:    light-dark(#0d2a33, #eef8fa);
   --mut:   light-dark(#566f78, #9dbfca);
-  --acc:   light-dark(#1b7f98, #3cc3df);
+  --acc:   light-dark(#157a94, #3cc3df);
   --accfg: light-dark(#ffffff, #03171d);
   --s1: light-dark(#d6224a, #ff5470);
   --s2: light-dark(#d86a0c, #ff9b4a);
   --s3: light-dark(#0f9a63, #48e0a0);
   --bad: var(--s1);
-  --shadow: 0 18px 44px -22px rgb(0 20 30 / .55);
+  --shadow-c: light-dark(rgb(10 70 90 / .30), rgb(0 12 20 / .62));
+  --shadow: 0 18px 44px -22px var(--shadow-c);
+  --glow-bg: light-dark(rgb(27 127 152 / .10), rgb(60 195 223 / .14));
 
   /* مشهد الأبراج */
   --sky1: light-dark(#2d8aa4, #03141b);

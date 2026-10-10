@@ -27,23 +27,23 @@ function whatsappUrl(num) {
   return `https://wa.me/${d}`;
 }
 
-function phoneBlock(value) {
-  const parts = splitPhones(value);
-  if (!parts.length) return '<span class="muted">—</span>';
-  const rows = parts.map((p) => {
-    if (!isPhone(p)) return `<div class="muted">${esc(p)}</div>`;
-    const tel = `tel:${esc(p.replace(/\s/g, ''))}`;
-    return `<div class="ph"><a class="num" href="${tel}">${esc(p)}</a><a class="mini" href="${tel}" aria-label="اتصال">${ICON.call}</a><a class="mini wa" href="${whatsappUrl(p)}" target="_blank" rel="noopener" aria-label="واتساب">${ICON.whatsapp}</a></div>`;
+/** كل أرقام الاتصال في شبكة مرتبة: رقم الفني (أو أكثر) ثم الفاتورة ثم صاحب الموقع */
+function collectNumbers(r) {
+  const groups = [['الفني', r.mp], ['الفاتورة', r.inv], ['صاحب الموقع', r.own]];
+  return groups.flatMap(([label, value]) => {
+    const nums = splitPhones(value).filter(isPhone);
+    return nums.map((num, i) => ({ label: nums.length > 1 ? `${label} ${i + 1}` : label, num }));
   });
-  return `<div class="phones">${rows.join('')}</div>`;
 }
 
-/** كل أرقام الاتصال معاً تحت اسم الفني: رقم الفني ثم الفاتورة ثم صاحب الموقع */
 function contactsBlock(r) {
-  const entries = [[null, r.mp], ['رقم الفاتورة', r.inv], ['رقم صاحب الموقع', r.own]]
-    .filter(([, v]) => splitPhones(v).some(isPhone));
-  if (!entries.length) return '';
-  return `<div class="contacts">${entries.map(([label, v]) => `<div class="ct">${label ? `<small>${label}</small>` : ''}${phoneBlock(v)}</div>`).join('')}</div>`;
+  const list = collectNumbers(r);
+  if (!list.length) return '';
+  const pills = list.map(({ label, num }) => {
+    const tel = `tel:${esc(num.replace(/\s/g, ''))}`;
+    return `<div class="pill"><a class="pn" href="${tel}" aria-label="اتصال ${esc(label)}"><small>${esc(label)}</small><span>${esc(num)}</span></a><a class="mini wa" href="${whatsappUrl(num)}" target="_blank" rel="noopener" aria-label="واتساب ${esc(label)}">${ICON.whatsapp}</a></div>`;
+  }).join('');
+  return `<div class="contacts${list.length > 4 ? ' dense' : ''}">${pills}</div>`;
 }
 
 /* ---------- مكوّنات ---------- */
@@ -51,7 +51,7 @@ const mapUrl = (r) => `https://www.google.com/maps?q=${r.lat},${r.lon}`;
 const NONE = '<b class="k-none">غير محدد في الملف</b>';
 
 const tile = (cls, icon, label, body, extra = '') =>
-  `<div class="k ${cls}"><span class="ki">${icon}</span><div class="kb"><small>${label}</small>${body}${extra}</div></div>`;
+  `<div class="k ${cls}"><span class="ki">${icon}</span><div class="kb"><small>${label}</small>${body}</div>${extra}</div>`;
 
 const field = (label, value, { full = false, raw = false, en = false } = {}) => {
   if (value === '' || value == null) return '';
