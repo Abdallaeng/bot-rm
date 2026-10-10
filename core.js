@@ -137,7 +137,7 @@
 
     const extras = readExtras(XLSX, wb, toRows, warnings);
     const rows = [], seen = new Set();
-    let noId = 0, dup = 0, withExtra = 0;
+    let noId = 0, dup = 0, withExtra = 0, swapped = 0;
     for (let r = hi + 1; r < data.length; r++) {
       const row = data[r];
       if (!row) continue;
@@ -159,12 +159,15 @@
         else out = clean(v);
         if (out !== '' && out != null) o[k] = out;
       }
+      // بعض الصفوف فيها خط الطول والعرض مقلوبان: نصحّحها (العراق: الطول 38–49.5، العرض 28.5–37.5)
+      if (o.lon && o.lat && !(o.lon > 38 && o.lon < 49.5 && o.lat > 28.5 && o.lat < 37.5) && (o.lat > 38 && o.lat < 49.5 && o.lon > 28.5 && o.lon < 37.5)) { const t = o.lon; o.lon = o.lat; o.lat = t; swapped++; }
       if (!o.cl && cmap[id]) o.cl = cmap[id];
       if (o.sev) o.sev = o.sev.toUpperCase();
       const x = extras.get(id);
       if (x && Object.keys(x).length) { o.x = x; withExtra++; }
       rows.push(o);
     }
+    if (swapped) warnings.push(swapped + ' موقع كانت إحداثياته مقلوبة وتم تصحيحها');
     if (noId) warnings.push(noId + ' صف بدون رقم موقع تم تجاهله');
     if (dup) warnings.push(dup + ' رقم موقع مكرر (تم الاحتفاظ بالأول)');
     const miss = rows.filter(r => !r.cl).length;

@@ -9,7 +9,8 @@ const Core = window.BotCore;
 
 /* ---------------- لوحة الإدارة ---------------- */
 const sha = async (s) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))).map(b => b.toString(16).padStart(2, '0')).join('');
-const isAdmin = () => { try { return sessionStorage.getItem('brm_admin') === '1'; } catch (e) { return false; } };
+let cred = null;                       // "user:password" في الذاكرة فقط (يُرسل للخادم عند النشر)
+const isAdmin = () => Boolean(cred);
 const dlg = $('#dlg');
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
 function openDlg() { if (!dlg.open) dlg.showModal(); }
@@ -23,8 +24,9 @@ function login(err) {
   setTimeout(() => $('#lu') && $('#lu').focus(), 50);
   $('#lf').onsubmit = async e => {
     e.preventDefault();
-    const h = await sha($('#lu').value.trim().toLowerCase() + ':' + $('#lp').value);
-    if (h === CFG.adminHash) { try { sessionStorage.setItem('brm_admin', '1'); } catch (x) {} panel(); }
+    const user = $('#lu').value.trim(), pass = $('#lp').value;
+    const h = await sha(user.toLowerCase() + ':' + pass);
+    if (h === CFG.adminHash) { cred = `${user}:${pass}`; panel(); }
     else { $('#le').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة'; }
   };
 }
@@ -32,14 +34,14 @@ let tab = 'rep';
 function panel() {
   dlg.style.width = '';
   dlg.innerHTML = `<div class="dh"><b>⚙️ لوحة الإدارة</b><div style="display:flex;gap:8px"><button class="btn ghost" id="lo" type="button">خروج</button>${closeBtn}</div></div>
-    <div class="tabs"><button class="tab" data-t="rep">📊 التقارير</button><button class="tab" data-t="upd">⬆️ تحديث البيانات</button><button class="tab" data-t="set">🔧 الإعدادات</button></div><div class="db" id="tb"></div>`;
-  $('#lo').onclick = () => { try { sessionStorage.removeItem('brm_admin'); } catch (e) {} dlg.close(); };
+    <div class="tabs"><button class="tab" data-t="rep">📊 التقارير</button><button class="tab" data-t="upd">⬆️ تحديث البيانات</button></div><div class="db" id="tb"></div>`;
+  $('#lo').onclick = () => { cred = null; dlg.close(); };
   dlg.querySelectorAll('.tab').forEach(b => b.onclick = () => { tab = b.dataset.t; showTab(); });
   showTab();
 }
 function showTab() {
   dlg.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
-  ({ rep: tabReports, upd: tabUpdate, set: tabSettings })[tab]($('#tb'));
+  ({ rep: tabReports, upd: tabUpdate })[tab]($('#tb'));
 }
 
 /* ----- التقارير ----- */
@@ -53,6 +55,7 @@ async function tabReports(el) {
     try { const [s, m] = await Promise.all([getCount('s' + x.k), getCount('m' + x.k)]); return { ...x, s, m }; }
     catch (e) { online = false; const l = localBy[x.k] || [0, 0]; return { ...x, s: l[0], m: l[1] }; }
   }));
+  if (tab !== 'rep' || !el.isConnected) return;   // المستخدم انتقل لتبويب آخر أثناء التحميل
   if (!online) res.forEach(x => { const l = localBy[x.k] || [0, 0]; x.s = l[0]; x.m = l[1]; });
   const sum = (a, n) => a.slice(-n).reduce((t, x) => t + x.s, 0);
   const today = res[res.length - 1], y = res[res.length - 2];
@@ -76,18 +79,13 @@ async function tabReports(el) {
     <div class="h4">توزيع المواقع حسب المحافظة</div>${gvl.map(t => `<div class="bar"><span>${esc(t[0])}</span><i style="width:${Math.round(t[1] / gm * 100)}%"></i><em>${t[1]}</em></div>`).join('')}
     <div class="h4">آخر عمليات البحث (على هذا الجهاز)</div>
     ${logRev.length ? `<table class="tbl"><tr><th>الوقت</th><th>البحث</th><th>النتيجة</th></tr>${logRev.slice(0, 12).map(l => `<tr><td>${new Date(l[0]).toLocaleString('en-GB', { hour12: false, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td><td style="direction:ltr;text-align:start">${esc(l[1])}</td><td>${l[2] ? '✅' : '❌'}</td></tr>`).join('')}</table>` : '<div class="muted">لا توجد عمليات بعد.</div>'}`;
+  el.insertAdjacentHTML('beforeend', '<div class="sp"></div><button class="btn ghost" id="clrlog" type="button">مسح سجل هذا الجهاز</button>');
+  $('#clrlog').onclick = () => { LS.del('brm_log'); document.dispatchEvent(new CustomEvent('botrm:log')); toast('تم المسح'); tabReports(el); };
 }
 
 /* ----- تحديث البيانات ----- */
-const GH = () => Object.assign(guessGh(), LS.get('brm_gh', {}));
-function guessGh() {
-  const h = location.hostname, seg = location.pathname.split('/')[1] || '';
-  if (/\.github\.io$/.test(h)) return { owner: h.split('.')[0], repo: seg || (h.split('.')[0] + '.github.io'), branch: 'main', path: 'data.json', token: '' };
-  return { owner: '', repo: '', branch: 'main', path: 'data.json', token: '' };
-}
 let staged = null;
 function tabUpdate(el) {
-  const gh = GH(), canPush = gh.owner && gh.repo && gh.token;
   el.innerHTML = `<div class="note">ارفع ملف الإكسل الجديد (نفس الشكل: ورقة <b>الجدول العام</b>). سيتم فحصه ومقارنته بالبيانات الحالية قبل النشر.</div>
     <label class="drop" id="dz"><input type="file" id="fi" accept=".xlsx,.xlsm,.xls" hidden><b>اضغط لاختيار الملف أو اسحبه هنا</b>Excel (.xlsx)</label>
     <div id="prev"></div>`;
@@ -120,57 +118,38 @@ async function handleFile(f) {
     showStaged();
   } catch (e) { pv.innerHTML = `<div class="note warn">❌ ${esc(e.message || e)}</div>`; }
 }
+/** يرسل الملف المشفّر إلى دالة النشر في الاستضافة ليصل لكل المستخدمين */
+async function publishToAll(packet) {
+  let res;
+  try {
+    res = await fetch('/api/publish', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin': cred }, body: JSON.stringify(packet) });
+  } catch { throw new Error('تعذّر الاتصال بالخادم. تأكد من الإنترنت.'); }
+  if (res.ok) return;
+  const { error } = await res.json().catch(() => ({}));
+  if (error === 'not-configured') throw new Error('تخزين النشر غير مفعّل في الاستضافة بعد (خطوة واحدة تُعمل مرة واحدة فقط).');
+  if (error === 'unauthorized') throw new Error('بيانات الدخول غير صحيحة. سجّل الخروج ثم ادخل من جديد.');
+  throw new Error(`فشل النشر (${res.status})`);
+}
+
 function showStaged() {
-  const s = staged, gh = GH(), canPush = gh.owner && gh.repo && gh.token, pv = $('#prev');
+  const s = staged, pv = $('#prev');
   pv.innerHTML = `<div class="sp"></div><div class="kpis"><div class="kpi acc"><small>إجمالي المواقع</small><b>${s.rows.length}</b></div><div class="kpi"><small>جديدة</small><b>${s.add}</b></div><div class="kpi"><small>معدّلة</small><b>${s.chg}</b></div><div class="kpi bad"><small>محذوفة</small><b>${s.rem}</b></div></div>
     <div class="note">الملف: <b class="en">${esc(s.name)}</b> · الورقة: <b>${esc(s.sheet)}</b> · بدون تغيير: ${s.same}</div>
     ${s.warnings.length ? `<div class="note warn">${s.warnings.map(esc).join('<br>')}</div>` : ''}
-    <div class="form"><div><label>رمز دخول الفريق (اتركه فارغاً لجعل الموقع مفتوحاً للجميع بدون رمز)</label><input class="inp ltr" id="nc" value="${esc(state.code)}" placeholder="بدون رمز"></div>
-    <div class="row"><button class="btn pri" id="pub" style="justify-content:center;height:46px" ${canPush ? '' : 'disabled'}>🚀 نشر على GitHub</button><button class="btn" id="dl" style="justify-content:center;height:46px">⬇️ تنزيل data.json</button></div>
-    ${canPush ? '' : '<div class="muted" style="font-size:13px">لتفعيل «النشر المباشر» أدخل بيانات GitHub في تبويب الإعدادات. أو نزّل الملف وارفعه يدوياً إلى المستودع.</div>'}
+    <div class="form"><button class="btn pri" id="pub" type="button" style="height:48px;font-size:16px">🚀 نشر للجميع</button>
     <div class="err" id="ue"></div><div id="um"></div></div>`;
-  const build = async () => { const c = $('#nc').value.trim(); const pkt = await Core.seal(s.rows, c); return { pkt, c }; };
-  $('#dl').onclick = async () => {
-    const { pkt, c } = await build();
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(pkt)], { type: 'application/json' })); a.download = 'data.json'; a.click();
-    $('#um').innerHTML = `<div class="note">تم التنزيل. استبدل ملف <b>data.json</b> في المستودع بهذا الملف ثم احفظ (Commit).${c ? '' : ' (الموقع بدون رمز)'}</div>`;
-  };
   $('#pub').onclick = async () => {
     const b = $('#pub'); b.disabled = true; $('#ue').textContent = ''; $('#um').innerHTML = '<div class="note">جارٍ النشر…</div>';
     try {
-      const { pkt, c } = await build();
-      await ghPut(JSON.stringify(pkt), `تحديث البيانات (${s.rows.length} موقع)`);
-      state.code = c; LS.set('brm_code', c); setRows(s.rows, pkt);
+      const packet = await Core.seal(s.rows, '');
+      await publishToAll(packet);
+      state.code = ''; LS.set('brm_code', ''); setRows(s.rows, packet);
       document.dispatchEvent(new CustomEvent('botrm:data'));
-      $('#um').innerHTML = '<div class="note">✅ تم النشر. سيظهر التحديث للجميع خلال دقيقة تقريباً (بعد أن يعيد الاستضافة بناء الموقع).</div>';
+      $('#um').innerHTML = '<div class="note">✅ تم النشر. يصل التحديث لكل المستخدمين خلال ثوانٍ (عند فتحهم للتطبيق).</div>';
       staged = null;
     } catch (e) { $('#um').innerHTML = ''; $('#ue').textContent = '❌ ' + (e.message || e); b.disabled = false; }
   };
 }
-async function ghPut(content, msg) {
-  const gh = GH(), url = `https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/${gh.path}`;
-  const H = { Authorization: 'Bearer ' + gh.token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
-  let sha;
-  const g = await fetch(url + '?ref=' + encodeURIComponent(gh.branch), { headers: H });
-  if (g.ok) sha = (await g.json()).sha; else if (g.status !== 404) throw new Error(g.status === 401 ? 'التوكن غير صالح (401)' : g.status === 403 ? 'التوكن لا يملك صلاحية (403)' : 'GitHub ' + g.status);
-  const p = await fetch(url, { method: 'PUT', headers: H, body: JSON.stringify({ message: msg, content: btoa(content), branch: gh.branch, sha }) });
-  if (!p.ok) { let m = ''; try { m = (await p.json()).message; } catch (e) {} throw new Error('فشل النشر (' + p.status + ') ' + (m || '')); }
-}
-
-/* ----- الإعدادات ----- */
-function tabSettings(el) {
-  const gh = GH();
-  el.innerHTML = `<div class="note">هذه الإعدادات تُحفظ على جهازك فقط. تُستخدم لزر «نشر على GitHub» حتى يصل التحديث لكل المستخدمين.</div>
-    <form class="form" id="sf"><div class="row"><div><label>حساب GitHub (Owner)</label><input class="inp ltr" id="go" value="${esc(gh.owner)}" placeholder="username"></div><div><label>اسم المستودع (Repo)</label><input class="inp ltr" id="gr" value="${esc(gh.repo)}" placeholder="bot-rm"></div></div>
-    <div class="row"><div><label>الفرع (Branch)</label><input class="inp ltr" id="gb" value="${esc(gh.branch)}"></div><div><label>مسار الملف</label><input class="inp ltr" id="gp" value="${esc(gh.path)}"></div></div>
-    <div><label>GitHub Token (صلاحية Contents: Read and write لهذا المستودع فقط)</label><input class="inp ltr" id="gt" type="password" value="${esc(gh.token)}" placeholder="github_pat_…"></div>
-    <div class="row"><button class="btn pri" style="justify-content:center;height:46px">حفظ</button><button class="btn" id="clrlog" type="button" style="justify-content:center;height:46px">مسح سجل هذا الجهاز</button></div></form>
-    <div class="sp"></div><details><summary>كيف أنشئ التوكن؟</summary><ol style="line-height:1.9;margin:10px 0 0;padding-inline-start:20px"><li>GitHub ← Settings ← Developer settings ← Fine-grained tokens ← Generate new token</li><li>Repository access: اختر مستودع Bot Rm فقط</li><li>Permissions ← Contents: <b>Read and write</b></li><li>انسخ التوكن والصقه هنا (لا تشاركه مع أحد)</li></ol></details>
-    <div class="h4">الإصدار</div><div class="muted en" style="direction:ltr;text-align:start">Bot Rm · data: ${esc(state.meta.updated || '')}</div>`;
-  $('#sf').onsubmit = e => { e.preventDefault(); LS.set('brm_gh', { owner: $('#go').value.trim(), repo: $('#gr').value.trim(), branch: $('#gb').value.trim() || 'main', path: $('#gp').value.trim() || 'data.json', token: $('#gt').value.trim() }); toast('تم الحفظ'); };
-  $('#clrlog').onclick = () => { LS.del('brm_log'); document.dispatchEvent(new CustomEvent('botrm:log')); toast('تم المسح'); };
-}
-
 
 export function openAdmin() {
   openDlg();

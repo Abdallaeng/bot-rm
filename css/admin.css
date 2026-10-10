@@ -37,7 +37,7 @@ dialog[open]{display:flex;flex-direction:column;animation:up .25s ease both}
 .tbl th{color:var(--mut);font-size:12px;font-weight:500}
 .note{padding:10px 14px;border-radius:12px;background:color-mix(in srgb,var(--acc) 10%,transparent);border:1px solid color-mix(in srgb,var(--acc) 30%,transparent);font-size:13.5px;margin-bottom:14px}
 .note.warn{background:color-mix(in srgb,var(--s2) 12%,transparent);border-color:color-mix(in srgb,var(--s2) 40%,transparent)}
-.drop{border:2px dashed var(--line);border-radius:16px;padding:26px 14px;text-align:center;color:var(--mut);cursor:pointer;transition:.15s}
+.drop{display:block;border:2px dashed var(--line);border-radius:16px;padding:26px 14px;text-align:center;color:var(--mut);cursor:pointer;transition:.15s}
 .drop:hover,.drop.on{border-color:var(--acc);color:var(--acc)}
 .drop b{display:block;color:var(--tx);font-size:16px;font-weight:600}
 .row{display:flex;gap:10px;flex-wrap:wrap}

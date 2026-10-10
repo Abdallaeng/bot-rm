@@ -6,6 +6,7 @@ import { initSearch } from './ui/search.js';
 import { renderStats, renderFooter, initInstallPrompt } from './ui/home.js';
 import { LS } from './lib/storage.js';
 import { initTheme } from './ui/theme.js';
+import { initBrowse } from './ui/browse.js';
 
 function showMessage(title, message, withRetry = true) {
   $('#main').innerHTML = `<div class="gate"><div class="card"><h2>${title}</h2><p>${esc(message)}</p>${withRetry ? '<button class="btn pri" onclick="location.reload()">إعادة المحاولة</button>' : ''}</div></div>`;
@@ -50,6 +51,7 @@ async function boot() {
   renderFooter();
   initInstallPrompt();
   initSearch();
+  initBrowse();
   if (!navigator.onLine) toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة');
   document.addEventListener('botrm:data', renderStats);
   refreshInBackground(packet);   // بعد نشر تحديث من لوحة الإدارة

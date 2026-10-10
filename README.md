@@ -38,3 +38,9 @@ js/data/              store (تحميل/فهرسة) · analytics (العدّاد
 js/ui/                search · card · home · effects · admin (يُحمَّل عند الطلب)
 sw.js                 الخدمة للعمل دون اتصال (الشبكة أولاً)
 ```
+
+## النشر من لوحة الإدارة (لكل المستخدمين)
+
+زر «نشر للجميع» يرسل البيانات إلى `functions/api/publish.js` (Cloudflare Pages Function) التي تحفظها في KV،
+و`functions/data.json.js` يخدم النسخة الأحدث. يتطلب ربط KV namespace باسم `DATA` بالمشروع مرة واحدة:
+Cloudflare ← Workers & Pages ← KV ← Create namespace ← ثم المشروع ← Settings ← Bindings ← KV namespace ← Variable name = `DATA`.
