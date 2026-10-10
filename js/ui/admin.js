@@ -3,12 +3,14 @@ import { $, esc, toast } from '../lib/dom.js';
 import { LS } from '../lib/storage.js';
 import { govName } from '../lib/labels.js';
 import { CFG, state, setRows } from '../data/store.js';
-import { ymd, getCount } from '../data/analytics.js';
+import { ymd } from '../data/analytics.js';
+import { tabBroadcast, tabAlerts } from './adminExtra.js';
 
 const Core = window.BotCore;
 
 /* ---------------- لوحة الإدارة ---------------- */
 const sha = async (s) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))).map(b => b.toString(16).padStart(2, '0')).join('');
+const api = (path, opt = {}) => fetch(path, { ...opt, headers: { 'content-type': 'application/json', 'x-admin': cred, ...(opt.headers || {}) }, cache: 'no-store' });
 let cred = null;                       // "user:password" في الذاكرة فقط (يُرسل للخادم عند النشر)
 const isAdmin = () => Boolean(cred);
 const dlg = $('#dlg');
@@ -34,53 +36,92 @@ let tab = 'rep';
 function panel() {
   dlg.style.width = '';
   dlg.innerHTML = `<div class="dh"><b>⚙️ لوحة الإدارة</b><div style="display:flex;gap:8px"><button class="btn ghost" id="lo" type="button">خروج</button>${closeBtn}</div></div>
-    <div class="tabs"><button class="tab" data-t="rep">📊 التقارير</button><button class="tab" data-t="upd">⬆️ تحديث البيانات</button></div><div class="db" id="tb"></div>`;
+    <div class="tabs"><button class="tab" data-t="rep">📊 التقارير</button><button class="tab" data-t="alr">🔔 التنبيهات</button><button class="tab" data-t="bc">📣 البث</button><button class="tab" data-t="upd">⬆️ البيانات</button></div><div class="db" id="tb"></div>`;
   $('#lo').onclick = () => { cred = null; dlg.close(); };
   dlg.querySelectorAll('.tab').forEach(b => b.onclick = () => { tab = b.dataset.t; showTab(); });
   showTab();
 }
 function showTab() {
   dlg.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
-  ({ rep: tabReports, upd: tabUpdate })[tab]($('#tb'));
+  ({ rep: tabReports, alr: (el) => tabAlerts(el, api, () => tab), bc: (el) => tabBroadcast(el, api, () => tab), upd: tabUpdate })[tab]($('#tb'));
 }
 
 /* ----- التقارير ----- */
+const fmtDay = (k) => `${k.slice(6)}/${k.slice(4, 6)}`;
+const bars = (rows, max, ltr) => rows.map(([name, n]) => `<div class="bar"><span${ltr ? ' class="en" style="direction:ltr;text-align:start"' : ''}>${esc(name)}</span><i style="width:${Math.round(n / max * 100)}%"></i><em>${n}</em></div>`).join('');
+const merge = (lists) => { const m = {}; lists.forEach((l) => (l || []).forEach(([k, n]) => { m[k] = (m[k] || 0) + n; })); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
+
+async function loadStats(range) {
+  const res = await api(`/api/stats?days=${range}`);
+  if (res.status === 501) throw new Error('not-configured');
+  if (res.status === 401) throw new Error('unauthorized');
+  if (!res.ok) throw new Error(`http-${res.status}`);
+  return res.json();
+}
+
 async function tabReports(el) {
-  el.innerHTML = '<div class="note">جارٍ تحميل التقارير…</div>';
-  const days = []; for (let i = 13; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); days.push({ k: ymd(d), d }); }
-  const log = LS.get('brm_log', []);
-  const localBy = {}; log.forEach(l => { const k = ymd(new Date(l[0])); (localBy[k] = localBy[k] || [0, 0]); localBy[k][0]++; if (!l[2]) localBy[k][1]++; });
-  let online = true;
-  const res = await Promise.all(days.map(async x => {
-    try { const [s, m] = await Promise.all([getCount('s' + x.k), getCount('m' + x.k)]); return { ...x, s, m }; }
-    catch (e) { online = false; const l = localBy[x.k] || [0, 0]; return { ...x, s: l[0], m: l[1] }; }
-  }));
-  if (tab !== 'rep' || !el.isConnected) return;   // المستخدم انتقل لتبويب آخر أثناء التحميل
-  if (!online) res.forEach(x => { const l = localBy[x.k] || [0, 0]; x.s = l[0]; x.m = l[1]; });
-  const sum = (a, n) => a.slice(-n).reduce((t, x) => t + x.s, 0);
-  const today = res[res.length - 1], y = res[res.length - 2];
-  const max = Math.max(1, ...res.map(x => x.s));
-  const W = 560, H = 190, bw = W / res.length;
-  const bars = res.map((x, i) => {
+  const range = Number(LS.get('brm_range', 14)) || 14;
+  el.innerHTML = '<div class="note">جارٍ تحميل التقارير من الخادم…</div>';
+  let st = null, why = '';
+  try { st = await loadStats(range); } catch (e) { why = e.message; }
+  if (tab !== 'rep' || !el.isConnected) return;
+
+  const localLog = LS.get('brm_log', []);
+  let days;
+  if (st) days = st.days.map((d) => ({ ...d, label: fmtDay(d.day) }));
+  else {
+    const by = {}; localLog.forEach((l) => { const k = ymd(new Date(l[0])); (by[k] ||= [0, 0]); by[k][0]++; if (!l[2]) by[k][1]++; });
+    days = Array.from({ length: range }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (range - 1 - i)); const k = ymd(d); const v = by[k] || [0, 0]; return { day: k, label: fmtDay(k), s: v[0], m: v[1], u: 0, h: Array(24).fill(0), top: [], miss: [] }; });
+  }
+  const sum = (n, f = 's') => days.slice(-n).reduce((t, x) => t + x[f], 0);
+  const today = days.at(-1), y = days.at(-2) || { s: 0 };
+  const rate = (a, b) => (b ? Math.round((1 - a / b) * 100) : 0);
+  const max = Math.max(1, ...days.map((x) => x.s));
+  const W = 560, H = 190, bw = W / days.length;
+  const chart = days.map((x, i) => {
     const h = Math.round((x.s / max) * (H - 50)), bx = i * bw + bw * .17, w = bw * .66, by = H - 24 - h;
-    return `<g><rect x="${bx.toFixed(1)}" y="${by}" width="${w.toFixed(1)}" height="${Math.max(h, 2)}" rx="5" fill="${i === res.length - 1 ? 'var(--acc)' : 'color-mix(in srgb,var(--acc) 45%,transparent)'}"/><text class="val" x="${(bx + w / 2).toFixed(1)}" y="${by - 5}" text-anchor="middle">${x.s || ''}</text><text x="${(bx + w / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${String(x.d.getDate()).padStart(2, '0')}/${String(x.d.getMonth() + 1).padStart(2, '0')}</text></g>`;
+    const hit = x.m ? Math.round(x.m / max * (H - 50)) : 0;
+    return `<g><rect x="${bx.toFixed(1)}" y="${by}" width="${w.toFixed(1)}" height="${Math.max(h, 2)}" rx="5" fill="${i === days.length - 1 ? 'var(--acc)' : 'color-mix(in srgb,var(--acc) 45%,transparent)'}"/>${hit ? `<rect x="${bx.toFixed(1)}" y="${H - 24 - hit}" width="${w.toFixed(1)}" height="${hit}" rx="3" fill="var(--s2)" opacity=".85"/>` : ''}<text class="val" x="${(bx + w / 2).toFixed(1)}" y="${by - 5}" text-anchor="middle">${x.s || ''}</text>${days.length <= 15 || i % 2 === 0 ? `<text x="${(bx + w / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${x.label}</text>` : ''}</g>`;
   }).join('');
-  const logRev = log.slice().reverse();
-  const cnt = {}; log.forEach(l => { if (l[2]) cnt[l[1]] = (cnt[l[1]] || 0) + 1; });
-  const top = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const topMax = top.length ? top[0][1] : 1;
-  const gv = {}; state.rows.forEach(r => { const g = govName(r.gov) || 'غير محدد'; gv[g] = (gv[g] || 0) + 1; });
-  const gvl = Object.entries(gv).sort((a, b) => b[1] - a[1]); const gm = gvl[0] ? gvl[0][1] : 1;
-  el.innerHTML = `${online ? '' : '<div class="note warn">⚠️ تعذّر الوصول لخدمة العدّاد الأونلاين، الأرقام أدناه من هذا الجهاز فقط.</div>'}
-    <div class="kpis"><div class="kpi acc"><small>بحث اليوم</small><b>${today.s}</b></div><div class="kpi"><small>أمس</small><b>${y.s}</b></div><div class="kpi"><small>آخر 7 أيام</small><b>${sum(res, 7)}</b></div><div class="kpi"><small>آخر 14 يوم</small><b>${sum(res, 14)}</b></div><div class="kpi bad"><small>بدون نتيجة (اليوم)</small><b>${today.m}</b></div></div>
-    <div class="h4">عدد عمليات البحث يومياً ${online ? '(أونلاين — كل المستخدمين)' : '(هذا الجهاز)'}</div>
-    <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="عدد عمليات البحث اليومية">${bars}</svg></div>
-    ${top.length ? `<div class="h4">الأكثر بحثاً (على هذا الجهاز)</div>${top.map(t => `<div class="bar"><span class="en" style="direction:ltr;text-align:start">${esc(t[0])}</span><i style="width:${Math.round(t[1] / topMax * 100)}%"></i><em>${t[1]}</em></div>`).join('')}` : ''}
-    <div class="h4">توزيع المواقع حسب المحافظة</div>${gvl.map(t => `<div class="bar"><span>${esc(t[0])}</span><i style="width:${Math.round(t[1] / gm * 100)}%"></i><em>${t[1]}</em></div>`).join('')}
-    <div class="h4">آخر عمليات البحث (على هذا الجهاز)</div>
-    ${logRev.length ? `<table class="tbl"><tr><th>الوقت</th><th>البحث</th><th>النتيجة</th></tr>${logRev.slice(0, 12).map(l => `<tr><td>${new Date(l[0]).toLocaleString('en-GB', { hour12: false, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td><td style="direction:ltr;text-align:start">${esc(l[1])}</td><td>${l[2] ? '✅' : '❌'}</td></tr>`).join('')}</table>` : '<div class="muted">لا توجد عمليات بعد.</div>'}`;
-  el.insertAdjacentHTML('beforeend', '<div class="sp"></div><button class="btn ghost" id="clrlog" type="button">مسح سجل هذا الجهاز</button>');
+  const hours = Array(24).fill(0); days.forEach((d) => d.h.forEach((n, i) => { hours[i] += n; }));
+  const hMax = Math.max(1, ...hours), peak = hours.indexOf(Math.max(...hours));
+  const hrs = hours.map((n, i) => `<i title="${i}:00 — ${n}" style="height:${Math.max(3, Math.round(n / hMax * 100))}%;${i === peak && n ? 'background:var(--acc)' : ''}"></i>`).join('');
+  const top = st ? merge(days.map((d) => d.top)).slice(0, 10) : Object.entries(localLog.reduce((a, l) => { if (l[2]) a[l[1]] = (a[l[1]] || 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const miss = st ? merge(days.map((d) => d.miss)).slice(0, 10) : [];
+  const recent = st ? st.recent.slice(0, 15) : localLog.slice().reverse().slice(0, 15).map((l) => [l[0], l[1], l[2], 'هذا']);
+  const gv = {}; state.rows.forEach((r) => { const g = govName(r.gov) || 'غير محدد'; gv[g] = (gv[g] || 0) + 1; });
+  const gvl = Object.entries(gv).sort((a, b) => b[1] - a[1]);
+  const delta = y.s ? Math.round((today.s - y.s) / y.s * 100) : 0;
+
+  const banner = st ? '<div class="note ok">🟢 متصل بالخادم — الأرقام لكل المستخدمين ومن كل الأجهزة.</div>'
+    : why === 'not-configured' ? '<div class="note warn">⚠️ تخزين الخادم (KV) غير مربوط بالمشروع، لذلك التقارير من هذا الجهاز فقط. اربط مساحة KV باسم <b class="en">DATA</b> ثم أعد النشر.</div>'
+    : why === 'unauthorized' ? '<div class="note warn">⚠️ بيانات الدخول غير مقبولة من الخادم. سجّل الخروج وادخل من جديد.</div>'
+    : '<div class="note warn">⚠️ تعذّر الاتصال بالخادم (إنترنت أو انقطاع مؤقت). الأرقام من هذا الجهاز فقط — اضغط تحديث للمحاولة مجدداً.</div>';
+
+  el.innerHTML = `${banner}
+    <div class="rbar"><div class="seg">${[7, 14, 30].map((n) => `<button type="button" data-r="${n}" class="${n === range ? 'on' : ''}">${n} يوم</button>`).join('')}</div><span style="flex:1"></span><button class="btn" id="rfr" type="button">🔄 تحديث</button><button class="btn" id="rcsv" type="button">⬇️ CSV</button></div>
+    <div class="kpis"><div class="kpi acc"><small>بحث اليوم</small><b>${today.s}</b>${y.s ? `<em class="${delta >= 0 ? 'up' : 'dn'}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)}% عن أمس</em>` : ''}</div>
+      <div class="kpi"><small>أمس</small><b>${y.s}</b></div><div class="kpi"><small>آخر 7 أيام</small><b>${sum(7)}</b></div><div class="kpi"><small>آخر ${range} يوم</small><b>${sum(range)}</b></div>
+      ${st ? `<div class="kpi"><small>أجهزة فريدة اليوم</small><b>${today.u}</b></div>` : ''}
+      <div class="kpi bad"><small>بدون نتيجة (${range} يوم)</small><b>${sum(range, 'm')}</b><em>${rate(sum(range, 'm'), sum(range)) }% نجاح</em></div></div>
+    <div class="h4">عدد عمليات البحث يومياً <span class="lg"><i></i>غير موجود</span></div>
+    <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="عدد عمليات البحث اليومية">${chart}</svg></div>
+    ${st ? `<div class="h4">ساعات الذروة (بتوقيت بغداد) ${hours[peak] ? `— الأعلى ${peak}:00` : ''}</div><div class="hrs">${hrs}</div><div class="hlab"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>` : ''}
+    ${top.length ? `<div class="h4">الأكثر بحثاً ${st ? '(كل المستخدمين)' : '(هذا الجهاز)'}</div>${bars(top, top[0][1], true)}` : ''}
+    ${miss.length ? `<div class="h4">بحث بلا نتيجة — مواقع مطلوبة وغير موجودة</div>${bars(miss, miss[0][1], true)}` : ''}
+    <div class="h4">توزيع المواقع حسب المحافظة</div>${bars(gvl, gvl[0]?.[1] || 1)}
+    <div class="h4">آخر عمليات البحث ${st ? '(كل الأجهزة)' : '(هذا الجهاز)'}</div>
+    ${recent.length ? `<table class="tbl"><tr><th>الوقت</th><th>البحث</th><th>الجهاز</th><th>النتيجة</th></tr>${recent.map((l) => `<tr><td>${new Date(l[0]).toLocaleString('en-GB', { hour12: false, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td><td style="direction:ltr;text-align:start">${esc(l[1])}</td><td class="en muted">${esc(l[3] || '')}</td><td>${l[2] ? '✅' : '❌'}</td></tr>`).join('')}</table>` : '<div class="muted">لا توجد عمليات بعد.</div>'}
+    <div class="sp"></div><button class="btn ghost" id="clrlog" type="button">مسح سجل هذا الجهاز</button>`;
+
+  el.querySelectorAll('[data-r]').forEach((b) => b.onclick = () => { LS.set('brm_range', Number(b.dataset.r)); tabReports(el); });
+  $('#rfr').onclick = () => tabReports(el);
   $('#clrlog').onclick = () => { LS.del('brm_log'); document.dispatchEvent(new CustomEvent('botrm:log')); toast('تم المسح'); tabReports(el); };
+  $('#rcsv').onclick = () => {
+    const csv = ['التاريخ,عدد البحث,بدون نتيجة,أجهزة فريدة'].concat(days.map((d) => `${d.day},${d.s},${d.m},${d.u}`)).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = `botrm-report-${ymd()}.csv`; document.body.appendChild(a); a.click(); a.remove();
+  };
 }
 
 /* ----- تحديث البيانات ----- */

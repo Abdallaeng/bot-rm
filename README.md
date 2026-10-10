@@ -44,3 +44,8 @@ sw.js                 الخدمة للعمل دون اتصال (الشبكة أ
 زر «نشر للجميع» يرسل البيانات إلى `functions/api/publish.js` (Cloudflare Pages Function) التي تحفظها في KV،
 و`functions/data.json.js` يخدم النسخة الأحدث. يتطلب ربط KV namespace باسم `DATA` بالمشروع مرة واحدة:
 Cloudflare ← Workers & Pages ← KV ← Create namespace ← ثم المشروع ← Settings ← Bindings ← KV namespace ← Variable name = `DATA`.
+
+## تتبّع الاستخدام والبث (Functions + KV)
+- `POST /api/track` يجمّع عمليات البحث يومياً في KV (يتطلب ربط KV باسم `DATA`).
+- `GET /api/stats` (إدارة) تقارير كل المستخدمين، و`/api/broadcast` + `/api/bhist` لإعلانات البث.
+- ملاحظة: KV المجاني يسمح بنحو 1000 كتابة يومياً؛ الأجهزة ترسل دفعات كل دقيقة تقريباً لتقليل الكتابات.

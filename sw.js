@@ -1,14 +1,14 @@
 /* Service worker — يعمل دون إنترنت:
    · ملفات الموقع والبيانات: الشبكة أولاً (مهلة قصيرة) ثم النسخة المحفوظة
    · الخطوط: من الكاش فوراً وتُحدَّث في الخلفية */
-const VERSION = 'botrm-v14';
+const VERSION = 'botrm-v15';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const NETWORK_TIMEOUT = 3000;
 const SHELL = [
   './', 'index.html', 'config.js', 'core.js', 'manifest.webmanifest', 'data.json',
   'css/tokens.css', 'css/base.css', 'css/scene.css', 'css/search.css', 'css/card.css', 'css/browse.css', 'css/admin.css',
   'js/main.js', 'js/lib/dom.js', 'js/lib/storage.js', 'js/lib/text.js', 'js/lib/labels.js',
-  'js/data/store.js', 'js/data/analytics.js', 'js/ui/card.js', 'js/ui/fields.js', 'js/ui/effects.js', 'js/ui/home.js', 'js/ui/search.js', 'js/ui/theme.js', 'js/ui/browse.js', 'js/ui/exportImage.js', 'js/ui/admin.js',
+  'js/data/store.js', 'js/data/analytics.js', 'js/ui/card.js', 'js/ui/fields.js', 'js/ui/effects.js', 'js/ui/home.js', 'js/ui/search.js', 'js/ui/theme.js', 'js/ui/browse.js', 'js/ui/exportImage.js', 'js/ui/broadcast.js', 'js/ui/adminExtra.js', 'js/ui/admin.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/seal.png', 'icons/favicon.png',
 ];
 
@@ -68,7 +68,8 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (FONT_HOSTS.includes(url.hostname)) { e.respondWith(staleWhileRevalidate(req)); return; }
-  if (url.origin !== location.origin) return;           // العدّاد وGitHub: لا نتدخل
+  if (url.origin !== location.origin) return;           // خدمات خارجية: لا نتدخل
+  if (url.pathname.startsWith('/api/')) return;         // واجهات الخادم دائماً من الشبكة
   if (url.pathname.endsWith('/data.json')) { e.respondWith(dataRequest(url)); return; }
   e.respondWith(networkFirst(req));
 });

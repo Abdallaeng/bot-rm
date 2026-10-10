@@ -2,6 +2,7 @@
 import { $, esc, toast } from './lib/dom.js';
 import { state, fetchPacket, unlockPacket, setRows } from './data/store.js';
 import { flushPending } from './data/analytics.js';
+import { initBroadcast } from './ui/broadcast.js';
 import { initSearch } from './ui/search.js';
 import { renderStats, renderFooter, initInstallPrompt } from './ui/home.js';
 import { LS } from './lib/storage.js';
@@ -52,6 +53,7 @@ async function boot() {
   initInstallPrompt();
   initSearch();
   initBrowse();
+  initBroadcast();
   if (!navigator.onLine) toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة');
   document.addEventListener('botrm:data', renderStats);
   refreshInBackground(packet);   // بعد نشر تحديث من لوحة الإدارة

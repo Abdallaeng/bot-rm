@@ -68,3 +68,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #themeBtn:hover svg { transform: rotate(25deg); }
 #themeBtn .i-sun, #themeBtn .i-moon, #themeBtn .i-auto { display: none; }
 [data-mode=light] #themeBtn .i-sun, [data-mode=dark] #themeBtn .i-moon, [data-mode=auto] #themeBtn .i-auto { display: block; }
+
+/* شريط الإعلانات */
+.bcast { position: sticky; top: 0; z-index: 70; display: flex; align-items: flex-start; gap: 10px; padding: calc(10px + env(safe-area-inset-top)) 14px 10px; color: #fff; background: linear-gradient(90deg, #0e7490, #0b5d78); box-shadow: 0 8px 24px -12px rgb(0 0 0 / .5); animation: bcIn .4s cubic-bezier(.2,.8,.2,1) both; }
+.bcast.warn { background: linear-gradient(90deg, #c27a0a, #a86406); }
+.bcast.alert { background: linear-gradient(90deg, #d6403a, #a8262a); }
+.bcast p { flex: 1; margin: 0; font-size: 14.5px; font-weight: 600; line-height: 1.55; white-space: pre-wrap; }
+.bcast button { flex: none; width: 28px; height: 28px; border-radius: 50%; background: rgb(255 255 255 / .2); color: #fff; font-size: 13px; }
+@keyframes bcIn { from { transform: translateY(-100%); } }
