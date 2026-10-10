@@ -55,6 +55,7 @@ function render() {
       <div class="bsec"><label>المحافظة</label><div class="gchips">${govChips}</div></div>
       <div class="bsec"><label for="bTech">الفني</label><select id="bTech" class="inp">${techOpts}</select></div>
       <div class="bsum"><div><b>${list.length}</b> موقع</div><div class="sevs">${['S1', 'S2', 'S3'].filter((s) => sev.get(s)).map((s) => `<span class="bd ${s.toLowerCase()}">${s} · ${sev.get(s)}</span>`).join('')}</div></div>
+      <button class="btn wa" id="bShare" type="button"${list.length ? '' : ' disabled'}>📤 مشاركة القائمة كصورة (واتساب)</button>
       <input id="bText" class="inp" type="search" inputmode="search" placeholder="ابحث داخل النتائج (رقم أو عنوان)" value="${esc(sel.text)}">
       <div class="list">${rows || '<div class="notfound"><b>لا توجد مواقع</b>غيّر المحافظة أو الفني.</div>'}</div>
       ${list.length > shown ? `<button class="btn" id="bMore" type="button" style="width:100%;margin-top:10px">عرض المزيد (${list.length - shown})</button>` : ''}`
@@ -69,8 +70,55 @@ function render() {
     const pos = e.target.selectionStart; render();
     const t = $('#bText'); t.focus(); t.setSelectionRange(pos, pos);
   });
+  $('#bShare')?.addEventListener('click', shareList);
   $('#bMore')?.addEventListener('click', () => { shown += PAGE; render(); });
   root.querySelectorAll('.li[data-id]').forEach((b) => b.onclick = () => { close(true); setQuery(b.dataset.id); window.scrollTo({ top: 0 }); });
+}
+
+const MAXIMG = 90;
+const firstPhone = (r) => (String(r.mp || '').match(/\+?\d{9,13}/) || [''])[0].trim();
+
+async function shareList() {
+  const btn = $('#bShare');
+  const all = filtered().sort((a, b) => a.id - b.id);
+  const list = all.slice(0, MAXIMG);
+  const sev = tally(all, (r) => r.sev || '');
+  const tech = sel.tech && sel.tech !== NONE ? sel.tech : '';
+  const meta = {
+    title: `كلستر ${sel.cluster}`,
+    subtitle: [sel.gov ? govName(sel.gov) : 'كل المحافظات', tech].filter(Boolean).join(' · '),
+    total: all.length,
+    sev: { S1: sev.get('S1') || 0, S2: sev.get('S2') || 0, S3: sev.get('S3') || 0 },
+    date: new Date().toLocaleDateString('en-GB'),
+    note: all.length > MAXIMG ? `عرض أول ${MAXIMG} من ${all.length} — حدّد المحافظة أو الفني لعرض الباقي` : '',
+  };
+  const items = list.map((r) => ({ id: r.id, nm: r.nm, sev: r.sev, govLabel: govName(r.gov), tech: techOf(r) === NONE ? '' : techOf(r), phone: firstPhone(r) }));
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = 'جارٍ إنشاء الصورة…';
+  try {
+    const ex = await import('./exportImage.js');
+    const blobs = await ex.renderListImages(meta, items);
+    previewImages(ex, blobs, `${meta.title} ${meta.subtitle}`.replace(/\s+/g, '_'), `${meta.title} — ${meta.subtitle} (${all.length} موقع)`);
+  } catch (e) {
+    console.error(e);
+    alert('تعذّر إنشاء الصورة');
+  } finally { btn.disabled = false; btn.textContent = old; }
+}
+
+function previewImages(ex, blobs, name, text) {
+  const urls = blobs.map((b) => URL.createObjectURL(b));
+  const m = document.createElement('div');
+  m.className = 'pv';
+  m.innerHTML = `<div class="pvbox"><div class="pvimgs">${urls.map((u) => `<img src="${u}" alt="">`).join('')}</div>
+    <div class="pvbar"><button class="btn wa" data-a="share">مشاركة على واتساب</button><button class="btn" data-a="save">حفظ الصورة</button><button class="btn" data-a="x">إغلاق</button></div></div>`;
+  const done = () => { urls.forEach(URL.revokeObjectURL); m.remove(); };
+  m.onclick = async (e) => {
+    const a = e.target.closest('[data-a]')?.dataset.a;
+    if (e.target === m || a === 'x') return done();
+    if (a === 'save') ex.downloadImages(blobs, name);
+    if (a === 'share' && !(await ex.shareImages(blobs, name, text))) { ex.downloadImages(blobs, name); alert('المشاركة المباشرة غير مدعومة هنا — تم حفظ الصورة، أرسلها من الواتساب.'); }
+  };
+  document.body.appendChild(m);
 }
 
 function close(fromAction = false) {
