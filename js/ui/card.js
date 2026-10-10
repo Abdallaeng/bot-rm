@@ -1,7 +1,7 @@
 /** بطاقة تفاصيل الموقع */
 import { esc, copyText } from '../lib/dom.js';
-import { GOV, IO, govName } from '../lib/labels.js';
-import { formatIsoDate } from '../lib/text.js';
+import { IO, govName } from '../lib/labels.js';
+import { renderMore } from './fields.js';
 
 const svg = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const ICON = {
@@ -53,14 +53,6 @@ const NONE = '<b class="k-none">غير محدد في الملف</b>';
 const tile = (cls, icon, label, body, extra = '') =>
   `<div class="k ${cls}"><span class="ki">${icon}</span><div class="kb"><small>${label}</small>${body}</div>${extra}</div>`;
 
-const field = (label, value, { full = false, raw = false, en = false } = {}) => {
-  if (value === '' || value == null) return '';
-  const inner = raw ? value : esc(value);
-  return `<div class="f${full ? ' full' : ''}"><label>${label}</label><div${en ? ' class="en"' : ''}>${inner}</div></div>`;
-};
-
-const section = (title, body) => (body ? `<div class="sec"><h3>${title}</h3><div class="grid">${body}</div></div>` : '');
-
 export function renderCard(r) {
   const sev = r.sev ? r.sev.toLowerCase() : '';
   const hasGeo = Boolean(r.lat && r.lon);
@@ -72,15 +64,7 @@ export function renderCard(r) {
     r.io && `<span class="bd" style="direction:rtl">${esc(IO[r.io] || r.io)}</span>`,
   ].filter(Boolean).join('');
 
-  const details = [
-    section('تفاصيل الموقع',
-      field('التصنيف', r.t2, { en: true }) + field('المواقع المرتبطة', r.as != null ? r.as : '') +
-      (hasGeo ? field('الإحداثيات', `<span class="en">${r.lat}, ${r.lon}</span>`, { full: true, raw: true }) : '')),
-    section('الفريق', field('المقاول الفرعي', r.sub, { en: true }) + field('المورّد', r.ven, { en: true })),
-    section('الإعلان',
-      [['تاريخ الإعلان', r.ad], ['إعلان Hybrid', r.ah], ['إعلان Normal', r.an]].filter(([, v]) => v).map(([l, v]) => field(l, formatIsoDate(v))).join('')),
-    section('ملاحظات', r.cm ? field('', r.cm, { full: true }) : ''),
-  ].join('');
+  const more = renderMore(r);
 
   return `<article class="card${sev ? ` sev-${sev}` : ''}">
     <div class="head">
@@ -97,7 +81,7 @@ export function renderCard(r) {
       ${tile('k-tech', ICON.tech, 'الفني', r.mn ? `<b>${esc(r.mn)}</b>` : NONE, contactsBlock(r))}
       ${tile('k-addr', ICON.address, 'العنوان', r.nm ? `<b>${esc(r.nm)}</b>` : NONE)}
     </div>
-    ${details ? `<details class="more"><summary>تفاصيل إضافية</summary>${details}</details>` : ''}
+    ${more.count ? `<details class="more"><summary><span>عرض المزيد</span><em>${more.count} حقل من الملف</em></summary><div class="more-body">${more.html}</div></details>` : ''}
   </article>`;
 }
 
@@ -127,4 +111,3 @@ export function wireCard(r) {
   document.getElementById('copyBtn')?.addEventListener('click', () => copyText(plainText(r)));
 }
 
-export { GOV };

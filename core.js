@@ -47,6 +47,66 @@
     return clean(s).replace(/\s*\(\s*/g, ' (').replace(/\s*\)\s*/g, ')');
   }
 
+  /* ---------- أوراق إضافية: تُدمج بياناتها في حقل x لكل موقع ----------
+     كل مدخل: اسم الورقة، عمود رقم الموقع، والأعمدة المطلوبة (اسم الحقل ← عنوان العمود [، رقم التكرار]).
+     عنوان العمود يمكن أن يكون نصاً (مطابقة تامة) أو تعبيراً نمطياً. الأولوية للأوراق الأولى في القائمة. */
+  const EXTRA_SHEETS = [
+    { sheet: /^sheet2$/i, key: ['site code'], dates: ['onAir', 'annDate'], cols: {
+      siteStatus: ['site status'], client: ['client'], project: ['project type'], omCat: ['o&m category'], omAm: ['o&m am'], omRm: ['o&m rm'],
+      propAm: ['property am'], propRm: ['property rm'], grTeam: ['gr team'], teamResp: ['team responsibility'], cabType: ['cabinet type'],
+      cabModel: ['cabinet model'], asp: ['asp'], bsc: ['bsc'], rnc: ['rnc'], city: ['city'], siteAddr: ['site address'], tenant: ['tenant site code'],
+      onAir: ['on air date'], annDate: ['announcement date'], huawei: ['huawei swapped (yes/no)'], outage: ['outage'], alarm: ['alarm'], note2: ['comments'],
+      code3g: ['3g code'], codeU900: ['u900 code'] } },
+    { sheet: /^bts-db$/i, key: ['site'], cols: {
+      st2g: ['2g status'], bsc: [/^bsc/], rnc: ['rnc name'], nm2g: ['site name', 1], nm3g: ['3g site name'], nm4g: ['site name', 2],
+      code3g: ['3g code'], codeU900: ['u900 code'], code4g: ['4g code'], sev2g: ['sevirity'], sev3g: ['3g severiy'], sev4g: ['4g severiy'],
+      region: ['region'], subRegion: ['sub region'], subType: ['sub. and type'], special: ['special sites'], asp: ['flm asp'], btsAddr: ['address'] } },
+    { sheet: /^zain new sites subcontractor$/i, key: ['site id'], cols: { powerSc: ['power sc'] } },
+    { sheet: /^sheet7$/i, key: ['new site id'], dates: ['billable'], cols: {
+      oldId: ['old site id'], city: ['city'], rmResp: ['rm responsible'], omCat: ['o&m category'], billable: ['billable date'], siteStatus: ['site status'],
+      gens: ['no of gens'], cpConn: ['cp connected or not'], cpLegal: ['cp legal or illegal'], addr7: ['address'] } },
+    { sheet: /^sheet1$/i, key: ['site id'], cols: { tower: ['site type'] } },
+  ];
+  const EMPTY_X = /^(|-|0|null|n\/a|#n\/a|0&)$/i;
+
+  function headerIndex(head, spec) {
+    const [m, nth = 1] = spec; let seen = 0;
+    for (let i = 0; i < head.length; i++) {
+      if (m instanceof RegExp ? m.test(head[i]) : head[i] === m) { if (++seen === nth) return i; }
+    }
+    return -1;
+  }
+
+  function readExtras(XLSX, wb, toRows, warnings) {
+    const byId = new Map();
+    for (const def of EXTRA_SHEETS) {
+      const sn = wb.SheetNames.find(n => def.sheet.test(n.trim()));
+      if (!sn) continue;
+      const d = toRows(sn);
+      if (!d.length) continue;
+      const head = d[0].map(norm);
+      const k = headerIndex(head, def.key);
+      if (k < 0) continue;
+      const cols = Object.entries(def.cols).map(([f, spec]) => [f, headerIndex(head, spec)]).filter(([, i]) => i >= 0);
+      for (let r = 1; r < d.length; r++) {
+        const row = d[r];
+        if (!row || row[k] == null) continue;
+        const id = String(row[k]).trim().replace(/\.0+$/, '');
+        if (!id) continue;
+        const x = byId.get(id) || {};
+        for (const [f, i] of cols) {
+          if (f in x) continue;                       // الأولوية للمصدر الأول
+          let v = row[i];
+          v = (def.dates || []).includes(f) ? dateVal(v) : (typeof v === 'number' ? String(v) : clean(v));
+          if (v == null || EMPTY_X.test(String(v).trim())) continue;
+          x[f] = String(v).trim();
+        }
+        byId.set(id, x);
+      }
+    }
+    return byId;
+  }
+
   /** XLSX = SheetJS lib, wb = workbook. Returns {rows, warnings, sheet} */
   function parseWorkbook(XLSX, wb) {
     const warnings = [];
@@ -75,8 +135,9 @@
     const cn = find(n => n.trim() === 'ورقة1');
     if (cn) toRows(cn).slice(1).forEach(r => { if (r && r[0] != null && r[1]) cmap[String(r[0]).trim()] = clean(r[1]); });
 
+    const extras = readExtras(XLSX, wb, toRows, warnings);
     const rows = [], seen = new Set();
-    let noId = 0, dup = 0;
+    let noId = 0, dup = 0, withExtra = 0;
     for (let r = hi + 1; r < data.length; r++) {
       const row = data[r];
       if (!row) continue;
@@ -100,6 +161,8 @@
       }
       if (!o.cl && cmap[id]) o.cl = cmap[id];
       if (o.sev) o.sev = o.sev.toUpperCase();
+      const x = extras.get(id);
+      if (x && Object.keys(x).length) { o.x = x; withExtra++; }
       rows.push(o);
     }
     if (noId) warnings.push(noId + ' صف بدون رقم موقع تم تجاهله');
