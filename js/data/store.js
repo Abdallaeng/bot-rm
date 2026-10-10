@@ -27,8 +27,9 @@ export function setRows(rows, meta = {}) {
   }
 }
 
-export async function fetchPacket() {
-  const res = await fetch(`${CFG.dataFile}?t=${Date.now()}`, { cache: 'no-cache' });
+/** fresh=false: من الكاش فوراً (السريع)؛ fresh=true: من الشبكة للتحقق من وجود تحديث */
+export async function fetchPacket(fresh = false) {
+  const res = await fetch(fresh ? `${CFG.dataFile}?fresh=1` : CFG.dataFile);
   if (!res.ok) throw new Error(`data ${res.status}`);
   return res.json();
 }

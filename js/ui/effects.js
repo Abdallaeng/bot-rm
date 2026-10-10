@@ -1,10 +1,11 @@
 /** تأثيرات: نبضة البرج + تبديل أرقام رقم الموقع */
 import { $, prefersReducedMotion } from '../lib/dom.js';
 
-export function pingSite() {
+export function pingSite(severity = '') {
   if (prefersReducedMotion()) return;
   const scene = $('#scene');
-  if (scene) { scene.classList.remove('ping'); void scene.getBoundingClientRect(); scene.classList.add('ping'); }
+  if (scene) {
+    scene.dataset.sev = severity.toLowerCase(); scene.classList.remove('ping'); void scene.getBoundingClientRect(); scene.classList.add('ping'); }
 
   const el = $('.id-n');
   if (!el) return;

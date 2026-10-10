@@ -45,7 +45,7 @@ const notFound = (title, hint) => `<div class="notfound"><b>${title}</b>${hint}<
 
 function listItem(r) {
   const sub = [govName(r.gov), r.cl].filter(Boolean).map(esc).join(' · ');
-  return `<button class="li" type="button" data-id="${esc(r.id)}"><span class="n">${esc(r.id)}</span><span class="t">${esc(r.nm || '—')}<br><span class="g">${sub}</span></span></button>`;
+  return `<button class="li" type="button" data-id="${esc(r.id)}"><span class="n">${esc(r.id)}</span><span class="t"><span class="nm">${esc(r.nm || '—')}</span><span class="g">${sub}</span></span></button>`;
 }
 
 function wireLinks() {
@@ -56,13 +56,16 @@ function wireLinks() {
 
 function showId(raw, out) {
   const hit = state.byId.get(raw) || state.byId.get(String(parseInt(raw, 10)));
-  const similar = state.rows.filter((r) => r !== hit && r.id.startsWith(raw)).slice(0, 8);
+  const similar = state.rows
+    .filter((r) => r !== hit && r.id.startsWith(raw))
+    .sort((x, y) => x.id.length - y.id.length || x.id - y.id)
+    .slice(0, 8);
   if (hit) {
     out.innerHTML = renderCard(hit) + similarChips(similar);
     wireCard(hit);
-    if (shownId !== hit.id) { shownId = hit.id; pingSite(); }
+    if (shownId !== hit.id) { shownId = hit.id; pingSite(hit.sev); }
   } else if (similar.length) {
-    out.innerHTML = notFound(`لا يوجد موقع بالرقم ${esc(raw)}`, 'هل تقصد أحد هذه؟') + similarChips(similar, true);
+    out.innerHTML = `<div class="suggest-title">مواقع تبدأ بـ <b>${esc(raw)}</b></div><div class="list">${similar.map(listItem).join('')}</div>`;
   } else {
     out.innerHTML = notFound(`لا يوجد موقع بالرقم ${esc(raw)}`, 'تأكد من الرقم وأعد المحاولة.');
   }
@@ -102,6 +105,7 @@ export function initSearch() {
   $('#form').addEventListener('submit', (e) => { e.preventDefault(); clearTimeout(commitTimer); search(true); q.blur(); });
   $('#clr').addEventListener('click', () => { q.value = ''; onInput(); q.focus(); });
   document.addEventListener('botrm:log', () => renderRecent(setQuery));
+  document.addEventListener('botrm:data', () => { if (currentQuery()) search(false); });
   renderRecent(setQuery);
 
   const initial = decodeURIComponent(location.hash.slice(1));

@@ -3,7 +3,7 @@ import { $, esc, toast } from './lib/dom.js';
 import { state, fetchPacket, unlockPacket, setRows } from './data/store.js';
 import { flushPending } from './data/analytics.js';
 import { initSearch } from './ui/search.js';
-import { renderStats, renderFooter } from './ui/home.js';
+import { renderStats, renderFooter, initInstallPrompt } from './ui/home.js';
 import { LS } from './lib/storage.js';
 import { initTheme } from './ui/theme.js';
 
@@ -23,6 +23,19 @@ function showCodeGate(packet, wrong = false) {
   };
 }
 
+/** بعد العرض الفوري من الكاش: تحقّق بصمت من وجود بيانات أحدث وبدّلها */
+async function refreshInBackground(current) {
+  try {
+    const latest = await fetchPacket(true);
+    if (latest.updated === current.updated) return;
+    const rows = await unlockPacket(latest);
+    if (!rows) return;
+    setRows(rows, latest);
+    document.dispatchEvent(new CustomEvent('botrm:data'));
+    toast('تم تحديث البيانات');
+  } catch { /* بدون اتصال: نكمل بالنسخة المحفوظة */ }
+}
+
 async function boot() {
   let packet;
   try { packet = await fetchPacket(); }
@@ -35,9 +48,11 @@ async function boot() {
   flushPending();
   renderStats();
   renderFooter();
+  initInstallPrompt();
   initSearch();
   if (!navigator.onLine) toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة');
-  document.addEventListener('botrm:data', renderStats);   // بعد نشر تحديث من لوحة الإدارة
+  document.addEventListener('botrm:data', renderStats);
+  refreshInBackground(packet);   // بعد نشر تحديث من لوحة الإدارة
 }
 
 initTheme();

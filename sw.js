@@ -1,7 +1,7 @@
 /* Service worker — يعمل دون إنترنت:
    · ملفات الموقع والبيانات: الشبكة أولاً (مهلة قصيرة) ثم النسخة المحفوظة
    · الخطوط: من الكاش فوراً وتُحدَّث في الخلفية */
-const VERSION = 'botrm-v8';
+const VERSION = 'botrm-v9';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const NETWORK_TIMEOUT = 3000;
 const SHELL = [
@@ -42,6 +42,20 @@ async function networkFirst(req) {
   }
 }
 
+/** data.json: يُعرض من الكاش فوراً ويُحدَّث بالخلفية؛ مع ?fresh=1 يُجلب من الشبكة أولاً */
+async function dataRequest(url) {
+  const cache = await caches.open(VERSION);
+  const key = url.origin + url.pathname;
+  const refresh = () => fetch(key, { cache: 'no-cache' }).then((res) => { if (res.ok) cache.put(key, res.clone()); return res; });
+  if (url.searchParams.has('fresh')) {
+    try { return await Promise.race([refresh(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))]); }
+    catch { return (await cache.match(key)) || Response.error(); }
+  }
+  const cached = await cache.match(key);
+  if (cached) { refresh().catch(() => {}); return cached; }
+  return refresh();
+}
+
 async function staleWhileRevalidate(req) {
   const cache = await caches.open(VERSION);
   const cached = await cache.match(req);
@@ -55,5 +69,6 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (FONT_HOSTS.includes(url.hostname)) { e.respondWith(staleWhileRevalidate(req)); return; }
   if (url.origin !== location.origin) return;           // العدّاد وGitHub: لا نتدخل
+  if (url.pathname.endsWith('/data.json')) { e.respondWith(dataRequest(url)); return; }
   e.respondWith(networkFirst(req));
 });

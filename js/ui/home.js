@@ -24,3 +24,17 @@ export function renderRecent(onPick) {
 export function renderFooter() {
   $('#foot').innerHTML = '<img src="icons/seal.png" alt="" width="52" height="52"><div><b>شركة ربوع المعالي للتجارة والمقاولات العامة المحدودة</b><span>Bot Rm · للاستخدام الداخلي</span></div>';
 }
+
+/** زر «تثبيت التطبيق» حيث يدعم المتصفح ذلك (أندرويد/كروم) */
+export function initInstallPrompt() {
+  const box = $('#install');
+  let deferred = null;
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; box.hidden = false; });
+  window.addEventListener('appinstalled', () => { box.hidden = true; deferred = null; });
+  box.addEventListener('click', async () => {
+    if (!deferred) return;
+    deferred.prompt();
+    await deferred.userChoice;
+    deferred = null; box.hidden = true;
+  });
+}
