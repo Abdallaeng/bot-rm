@@ -3,7 +3,7 @@ import { authed, json, dayKey } from '../_shared.js';
 
 export async function onRequestGet({ request, env }) {
   if (!env.DATA) return json({ error: 'not-configured' }, 501);
-  if (!(await authed(request))) return json({ error: 'unauthorized' }, 401);
+  if (!(await authed(request, env))) return json({ error: 'unauthorized' }, 401);
   const days = Math.min(30, Math.max(1, +new URL(request.url).searchParams.get('days') || 14));
   const keys = Array.from({ length: days }, (_, i) => dayKey(Date.now() - (days - 1 - i) * 86400e3));
   const [aggs, recent, bc] = await Promise.all([

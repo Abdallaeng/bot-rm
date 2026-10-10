@@ -4,10 +4,11 @@ import { state, fetchPacket, unlockPacket, setRows } from './data/store.js';
 import { flushPending } from './data/analytics.js';
 import { initBroadcast } from './ui/broadcast.js';
 import { initSearch } from './ui/search.js';
-import { renderStats, renderFooter, initInstallPrompt } from './ui/home.js';
+import { renderStats, renderFooter, renderConn, initInstallPrompt } from './ui/home.js';
 import { LS } from './lib/storage.js';
 import { initTheme } from './ui/theme.js';
 import { initBrowse } from './ui/browse.js';
+import { initHaptics } from './lib/haptic.js';
 
 function showMessage(title, message, withRetry = true) {
   $('#main').innerHTML = `<div class="gate"><div class="card"><h2>${title}</h2><p>${esc(message)}</p>${withRetry ? '<button class="btn pri" onclick="location.reload()">إعادة المحاولة</button>' : ''}</div></div>`;
@@ -26,15 +27,16 @@ function showCodeGate(packet, wrong = false) {
 }
 
 /** بعد العرض الفوري من الكاش: تحقّق بصمت من وجود بيانات أحدث وبدّلها */
-async function refreshInBackground(current) {
+let current = null;
+async function refreshInBackground() {
   try {
     const latest = await fetchPacket(true);
-    if (latest.updated === current.updated) return;
+    if (!current || latest.updated === current.updated) return;
     const rows = await unlockPacket(latest);
     if (!rows) return;
-    setRows(rows, latest);
+    setRows(rows, latest); current = latest;
     document.dispatchEvent(new CustomEvent('botrm:data'));
-    toast('تم تحديث البيانات');
+    toast('✅ تم تحديث البيانات تلقائياً');
   } catch { /* بدون اتصال: نكمل بالنسخة المحفوظة */ }
 }
 
@@ -46,7 +48,7 @@ async function boot() {
   const rows = await unlockPacket(packet);
   if (!rows) return showCodeGate(packet);
 
-  setRows(rows, packet);
+  setRows(rows, packet); current = packet;
   flushPending();
   renderStats();
   renderFooter();
@@ -55,11 +57,17 @@ async function boot() {
   initBrowse();
   initBroadcast();
   if (!navigator.onLine) toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة');
-  document.addEventListener('botrm:data', renderStats);
-  refreshInBackground(packet);   // بعد نشر تحديث من لوحة الإدارة
+  renderConn();
+  document.addEventListener('botrm:data', () => { renderStats(); renderConn(); });
+  ['online', 'offline'].forEach((ev) => window.addEventListener(ev, renderConn));
+  // تحديث تلقائي: عند الفتح، وعند العودة للتطبيق، وكل 10 دقائق
+  refreshInBackground();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { refreshInBackground(); renderConn(); } });
+  setInterval(refreshInBackground, 600_000);
 }
 
 initTheme();
+initHaptics();
 window.addEventListener('offline', () => toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة'));
 window.addEventListener('online', () => { toast('عاد الاتصال'); flushPending(); });
 $('#adminBtn').addEventListener('click', async () => (await import('./ui/admin.js')).openAdmin());

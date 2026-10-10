@@ -13,6 +13,24 @@ export function renderStats() {
   countUp($('#stats'));
 }
 
+function ago(iso) {
+  const m = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (!(m >= 0)) return '';
+  if (m < 60) return 'قبل قليل';
+  if (m < 1440) return `قبل ${Math.round(m / 60)} ساعة`;
+  const d = Math.round(m / 1440);
+  return d === 1 ? 'أمس' : `قبل ${d} يوم`;
+}
+
+/** مؤشر الاتصال وعمر البيانات */
+export function renderConn() {
+  const el = $('#conn'); if (!el) return;
+  const on = navigator.onLine, upd = stats().updated;
+  const age = upd ? Math.round((Date.now() - new Date(upd)) / 86400e3) : 0;
+  el.className = `conn ${on ? (age > 30 ? 'old' : 'on') : 'off'}`;
+  el.innerHTML = `<i></i><span>${on ? 'متصل' : 'بدون إنترنت — بيانات محفوظة'}${upd ? ` · البيانات ${ago(upd)}` : ''}</span>`;
+}
+
 export function renderRecent(onPick) {
   const seen = recentSearches();
   $('#recent').innerHTML = seen.length

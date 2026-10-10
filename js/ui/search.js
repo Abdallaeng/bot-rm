@@ -41,7 +41,8 @@ function similarChips(sites, withoutTitle) {
   return `<div class="simi"><small>${withoutTitle ? '' : 'مواقع مشابهة'}</small><div>${chips}</div></div>`;
 }
 
-const notFound = (title, hint) => `<div class="notfound"><b>${title}</b>${hint}</div>`;
+const EMPTY_ART = '<svg viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="42" cy="42" r="22" opacity=".9"/><path d="m58 58 22 22" /><path d="M42 30v24M34 54l8-24 8 24M36 44h12" opacity=".55"/><path d="M14 20h10M10 28h6M74 14h8" opacity=".35"/></svg>';
+const notFound = (title, hint, extra = '') => `<div class="empty">${EMPTY_ART}<b>${title}</b>${hint}${extra}</div>`;
 
 function listItem(r) {
   const sub = [govName(r.gov), r.cl].filter(Boolean).map(esc).join(' · ');
@@ -67,18 +68,55 @@ function showId(raw, out) {
   } else if (similar.length) {
     out.innerHTML = `<div class="suggest-title">مواقع تبدأ بـ <b>${esc(raw)}</b></div><div class="list">${similar.map(listItem).join('')}</div>`;
   } else {
-    out.innerHTML = notFound(`لا يوجد موقع بالرقم ${esc(raw)}`, 'تأكد من الرقم وأعد المحاولة.');
+    const n = Number(raw);
+    const near = state.rows.filter((r) => /^\d+$/.test(r.id)).sort((a, b) => Math.abs(a.id - n) - Math.abs(b.id - n)).slice(0, 6);
+    out.innerHTML = notFound(`لا يوجد موقع بالرقم ${esc(raw)}`, 'تأكد من الرقم وأعد المحاولة.',
+      near.length ? `<small>أقرب المواقع رقماً</small><div class="chips">${near.map((r) => `<button class="chip" type="button" data-id="${esc(r.id)}">${esc(r.id)}</button>`).join('')}</div>` : '');
   }
   return { found: Boolean(hit), exact: Boolean(hit) };
 }
 
+/** مسافة التحرير (Levenshtein) مع قطع مبكر عند تجاوز الحد */
+function within(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return false;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i]; let low = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      if (cur[j] < low) low = cur[j];
+    }
+    if (low > max) return false;
+    prev = cur;
+  }
+  return prev[b.length] <= max;
+}
+const tolerance = (t) => (t.length >= 8 ? 2 : t.length >= 4 ? 1 : 0);
+
+function fuzzyMatch(r, tokens) {
+  const words = r._w || (r._w = r._s.split(' '));
+  return tokens.every((t) => r._s.includes(t) || words.some((w) => within(t, w, tolerance(t))));
+}
+
 function showText(raw, out) {
   const tokens = normalizeArabic(raw).split(' ').filter(Boolean);
-  const results = state.rows.filter((r) => tokens.every((t) => r._s.includes(t))).slice(0, 30);
+  let results = state.rows.filter((r) => tokens.every((t) => r._s.includes(t))).slice(0, 30);
+  let approx = false;
+  if (!results.length && tokens.some((t) => t.length >= 4)) { results = state.rows.filter((r) => fuzzyMatch(r, tokens)).slice(0, 30); approx = results.length > 0; }
   out.innerHTML = results.length
-    ? `<div class="list">${results.map(listItem).join('')}</div>`
-    : notFound('لا توجد نتائج', 'جرّب رقم الموقع أو جزءاً من العنوان.');
+    ? `${approx ? '<div class="suggest-title">لا يوجد تطابق تام — نتائج <b>مقاربة</b> لما كتبت</div>' : ''}<div class="list">${results.map(listItem).join('')}</div>`
+    : notFound('لا توجد نتائج', 'جرّب رقم الموقع أو جزءاً من العنوان أو اسم الفني.');
   return { found: results.length > 0, exact: false };
+}
+
+/** بحث برقم هاتف (7 أرقام فأكثر) */
+function showPhone(raw, out) {
+  const d = raw.replace(/^0+/, '');
+  const results = state.rows.filter((r) => r._p.replace(/ /g, '').includes(d) || r._p.includes(raw)).slice(0, 30);
+  out.innerHTML = results.length
+    ? `<div class="suggest-title">مواقع مرتبطة بالرقم <b class="en">${esc(raw)}</b></div><div class="list">${results.map(listItem).join('')}</div>`
+    : notFound('لا يوجد موقع بهذا الرقم', 'تأكد من رقم الهاتف وأعد المحاولة.');
+  return { found: results.length > 0, exact: results.length === 1 };
 }
 
 function search(commit) {
@@ -90,7 +128,8 @@ function search(commit) {
     return;
   }
   history.replaceState(null, '', `#${encodeURIComponent(raw)}`);
-  const { found, exact } = /^\d+$/.test(raw) ? showId(raw, out) : showText(raw, out);
+  const isNum = /^\d+$/.test(raw);
+  const { found, exact } = isNum ? (raw.length >= 7 ? showPhone(raw, out) : showId(raw, out)) : showText(raw, out);
   wireLinks();
   if (commit) {
     track(raw, found);

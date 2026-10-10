@@ -100,3 +100,9 @@ export function renderMore(r) {
   for (const part of [addressGroup(r), notesGroup(r)]) { html += part.html; total += part.count; }
   return { html, count: total };
 }
+
+/** اسم عربي لكل مفتاح (للمقارنة قبل النشر) */
+export const FIELD_LABELS = Object.fromEntries(
+  [['id', 'رقم الموقع'], ['nm', 'العنوان'], ['gov', 'المحافظة'], ['cl', 'الكلستر'], ['mn', 'الفني'], ['mp', 'الهاتف']]
+    .concat(GROUPS.flatMap((g) => g.fields.map((f) => [f[0], f[1]]))),
+);

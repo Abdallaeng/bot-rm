@@ -11,7 +11,7 @@ export async function onRequestGet({ env }) {
 
 export async function onRequestPost({ request, env }) {
   if (!env.DATA) return json({ error: 'not-configured' }, 501);
-  if (!(await authed(request))) return json({ error: 'unauthorized' }, 401);
+  if (!(await authed(request, env))) return json({ error: 'unauthorized' }, 401);
   let body; try { body = await request.json(); } catch { return json({ error: 'bad-json' }, 400); }
 
   if (body.action === 'clear') { await env.DATA.delete('broadcast'); return json({ ok: true }); }

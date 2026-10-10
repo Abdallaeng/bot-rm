@@ -4,14 +4,16 @@ import { LS } from '../lib/storage.js';
 import { govName } from '../lib/labels.js';
 import { CFG, state, setRows } from '../data/store.js';
 import { ymd } from '../data/analytics.js';
-import { tabBroadcast, tabAlerts } from './adminExtra.js';
+import { tabBroadcast, tabAlerts, tabSecurity } from './adminExtra.js';
+import { FIELD_LABELS } from './fields.js';
+import { ICONS } from '../lib/icons.js';
 
 const Core = window.BotCore;
 
 /* ---------------- لوحة الإدارة ---------------- */
-const sha = async (s) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))).map(b => b.toString(16).padStart(2, '0')).join('');
-const api = (path, opt = {}) => fetch(path, { ...opt, headers: { 'content-type': 'application/json', 'x-admin': cred, ...(opt.headers || {}) }, cache: 'no-store' });
-let cred = null;                       // "user:password" في الذاكرة فقط (يُرسل للخادم عند النشر)
+const api = (path, opt = {}) => fetch(path, { ...opt, headers: { 'content-type': 'application/json', authorization: `Bearer ${cred}`, ...(opt.headers || {}) }, cache: 'no-store' });
+let cred = null;                       // رمز الجلسة (من الخادم) في الذاكرة فقط
+let weakPw = false;                   // كلمة المرور ما زالت الافتراضية                       // "user:password" في الذاكرة فقط (يُرسل للخادم عند النشر)
 const isAdmin = () => Boolean(cred);
 const dlg = $('#dlg');
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
@@ -26,24 +28,31 @@ function login(err) {
   setTimeout(() => $('#lu') && $('#lu').focus(), 50);
   $('#lf').onsubmit = async e => {
     e.preventDefault();
-    const user = $('#lu').value.trim(), pass = $('#lp').value;
-    const h = await sha(user.toLowerCase() + ':' + pass);
-    if (h === CFG.adminHash) { cred = `${user}:${pass}`; panel(); }
-    else { $('#le').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة'; }
+    const user = $('#lu').value.trim(), pass = $('#lp').value, btn = $('#lf button'), le = $('#le');
+    btn.disabled = true; le.textContent = '';
+    try {
+      const res = await fetch('/api/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ user, pass }), cache: 'no-store' });
+      if (res.ok) { const j = await res.json(); cred = j.token; weakPw = j.weak; return panel(); }
+      const j = await res.json().catch(() => ({}));
+      if (res.status === 429) le.textContent = `محاولات كثيرة خاطئة. أعد المحاولة بعد ${j.retryMin || 15} دقيقة.`;
+      else if (res.status === 501) le.textContent = 'تخزين الخادم (KV) غير مربوط بعد، لا يمكن فتح الإدارة. اربط KV باسم DATA وأعد النشر.';
+      else le.textContent = `اسم المستخدم أو كلمة المرور غير صحيحة${j.left != null ? ` (متبقي ${j.left} محاولات)` : ''}`;
+    } catch { le.textContent = 'تعذّر الاتصال بالخادم. تأكد من الإنترنت.'; }
+    btn.disabled = false;
   };
 }
 let tab = 'rep';
 function panel() {
   dlg.style.width = '';
   dlg.innerHTML = `<div class="dh"><b>⚙️ لوحة الإدارة</b><div style="display:flex;gap:8px"><button class="btn ghost" id="lo" type="button">خروج</button>${closeBtn}</div></div>
-    <div class="tabs"><button class="tab" data-t="rep">📊 التقارير</button><button class="tab" data-t="alr">🔔 التنبيهات</button><button class="tab" data-t="bc">📣 البث</button><button class="tab" data-t="upd">⬆️ البيانات</button></div><div class="db" id="tb"></div>`;
+    <div class="tabs"><button class="tab" data-t="rep">${ICONS.chart} التقارير</button><button class="tab" data-t="alr">${ICONS.bell} التنبيهات</button><button class="tab" data-t="bc">${ICONS.megaphone} البث</button><button class="tab" data-t="upd">${ICONS.upload} البيانات</button><button class="tab" data-t="sec">${ICONS.shield} الأمان</button></div>${weakPw ? '<div class="note warn" style="margin:10px 10px 0">⚠️ كلمة المرور ما زالت الافتراضية. غيّرها من تبويب «الأمان».</div>' : ''}<div class="db" id="tb"></div>`;
   $('#lo').onclick = () => { cred = null; dlg.close(); };
   dlg.querySelectorAll('.tab').forEach(b => b.onclick = () => { tab = b.dataset.t; showTab(); });
   showTab();
 }
 function showTab() {
   dlg.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
-  ({ rep: tabReports, alr: (el) => tabAlerts(el, api, () => tab), bc: (el) => tabBroadcast(el, api, () => tab), upd: tabUpdate })[tab]($('#tb'));
+  ({ rep: tabReports, alr: (el) => tabAlerts(el, api, () => tab), bc: (el) => tabBroadcast(el, api, () => tab), upd: tabUpdate, sec: tabSecurity })[tab]($('#tb'));
 }
 
 /* ----- التقارير ----- */
@@ -61,7 +70,7 @@ async function loadStats(range) {
 
 async function tabReports(el) {
   const range = Number(LS.get('brm_range', 14)) || 14;
-  el.innerHTML = '<div class="note">جارٍ تحميل التقارير من الخادم…</div>';
+  el.innerHTML = '<div class="skel h"></div><div class="skel"></div><div class="skel"></div><div class="skel h"></div>';
   let st = null, why = '';
   try { st = await loadStats(range); } catch (e) { why = e.message; }
   if (tab !== 'rep' || !el.isConnected) return;
@@ -99,7 +108,7 @@ async function tabReports(el) {
     : '<div class="note warn">⚠️ تعذّر الاتصال بالخادم (إنترنت أو انقطاع مؤقت). الأرقام من هذا الجهاز فقط — اضغط تحديث للمحاولة مجدداً.</div>';
 
   el.innerHTML = `${banner}
-    <div class="rbar"><div class="seg">${[7, 14, 30].map((n) => `<button type="button" data-r="${n}" class="${n === range ? 'on' : ''}">${n} يوم</button>`).join('')}</div><span style="flex:1"></span><button class="btn" id="rfr" type="button">🔄 تحديث</button><button class="btn" id="rcsv" type="button">⬇️ CSV</button></div>
+    <div class="rbar"><div class="seg">${[7, 14, 30].map((n) => `<button type="button" data-r="${n}" class="${n === range ? 'on' : ''}">${n} يوم</button>`).join('')}</div><span style="flex:1"></span><button class="btn" id="rfr" type="button">${ICONS.refresh}تحديث</button><button class="btn" id="rcsv" type="button">${ICONS.download}CSV</button></div>
     <div class="kpis"><div class="kpi acc"><small>بحث اليوم</small><b>${today.s}</b>${y.s ? `<em class="${delta >= 0 ? 'up' : 'dn'}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)}% عن أمس</em>` : ''}</div>
       <div class="kpi"><small>أمس</small><b>${y.s}</b></div><div class="kpi"><small>آخر 7 أيام</small><b>${sum(7)}</b></div><div class="kpi"><small>آخر ${range} يوم</small><b>${sum(range)}</b></div>
       ${st ? `<div class="kpi"><small>أجهزة فريدة اليوم</small><b>${today.u}</b></div>` : ''}
@@ -129,13 +138,36 @@ let staged = null;
 function tabUpdate(el) {
   el.innerHTML = `<div class="note">ارفع ملف الإكسل الجديد (نفس الشكل: ورقة <b>الجدول العام</b>). سيتم فحصه ومقارنته بالبيانات الحالية قبل النشر.</div>
     <label class="drop" id="dz"><input type="file" id="fi" accept=".xlsx,.xlsm,.xls" hidden><b>اضغط لاختيار الملف أو اسحبه هنا</b>Excel (.xlsx)</label>
-    <div id="prev"></div>`;
+    <div id="prev"></div>
+    <div class="h4">🕘 سجل النسخ المنشورة</div><div id="vers"><div class="note">جارٍ التحميل…</div></div>`;
+  loadVersions();
   const fi = $('#fi'), dz = $('#dz');
   fi.onchange = () => fi.files[0] && handleFile(fi.files[0]);
   ['dragover', 'dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('on'); }));
   ['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('on'); }));
   dz.addEventListener('drop', e => e.dataTransfer.files[0] && handleFile(e.dataTransfer.files[0]));
   if (staged) showStaged();
+}
+async function loadVersions() {
+  const box = $('#vers'); if (!box) return;
+  let log = [];
+  try {
+    const r = await api('/api/versions');
+    if (!r.ok) { box.innerHTML = `<div class="muted">${r.status === 501 ? 'غير متاح: KV غير مربوط.' : 'تعذّر تحميل السجل.'}</div>`; return; }
+    log = (await r.json()).log;
+  } catch { box.innerHTML = '<div class="muted">تعذّر الاتصال.</div>'; return; }
+  if (!$('#vers')) return;
+  box.innerHTML = log.length ? log.map((v, i) => `<div class="alr ${i === 0 ? 'ok' : ''}"><span class="ai">${v.restored ? '↩️' : '📦'}</span><div style="flex:1"><b>${esc(v.name || 'نسخة')} ${i === 0 ? '<small>(الحالية)</small>' : ''}</b>
+      <span>${new Date(v.ts).toLocaleString('en-GB', { hour12: false })} · ${v.count} موقع${v.add || v.chg || v.rem ? ` · +${v.add} ~${v.chg} −${v.rem}` : ''}</span>
+      ${i ? `<br><button class="btn" data-restore="${esc(v.id)}" type="button">↩️ تراجع لهذه النسخة</button>` : ''}</div></div>`).join('')
+    : '<div class="muted">لا توجد نسخ بعد. تُسجَّل كل عملية نشر هنا مع إمكانية التراجع.</div>';
+  box.querySelectorAll('[data-restore]').forEach((b) => b.onclick = async () => {
+    if (!confirm('سيتم استبدال البيانات المنشورة لكل المستخدمين بهذه النسخة. متابعة؟')) return;
+    b.disabled = true;
+    const r = await api('/api/versions', { method: 'POST', body: JSON.stringify({ id: b.dataset.restore }) });
+    if (r.ok) { toast('تم التراجع، سيصل المستخدمين خلال ثوانٍ'); try { const { fetchPacket, unlockPacket } = await import('../data/store.js'); const p = await fetchPacket(true); const rows = await unlockPacket(p); if (rows) { setRows(rows, p); document.dispatchEvent(new CustomEvent('botrm:data')); } } catch {} loadVersions(); }
+    else { toast('فشل التراجع'); b.disabled = false; }
+  });
 }
 function ensureXlsx() {
   return new Promise((res, rej) => {
@@ -151,25 +183,44 @@ async function handleFile(f) {
     const wb = XLSX.read(buf, { type: 'array', cellFormula: false, cellStyles: false, cellNF: false, sheetStubs: false });
     const r = Core.parseWorkbook(XLSX, wb);
     if (!r.rows.length) throw new Error('لا توجد صفوف صالحة.');
-    const old = new Map(state.rows.map(x => { const c = Object.assign({}, x); delete c._s; return [x.id, JSON.stringify(c)]; }));
-    let add = 0, chg = 0, same = 0; const seen = new Set();
-    r.rows.forEach(x => { seen.add(x.id); if (!old.has(x.id)) add++; else if (old.get(x.id) !== JSON.stringify(x)) chg++; else same++; });
-    let rem = 0; old.forEach((v, k) => { if (!seen.has(k)) rem++; });
-    staged = { rows: r.rows, warnings: r.warnings, sheet: r.sheet, name: f.name, add, chg, same, rem };
+    const flat = (r) => { const o = { ...r, ...(r.x || {}) }; delete o._s; delete o.x; return o; };
+    const old = new Map(state.rows.map((x) => [x.id, flat(x)]));
+    let add = 0, chg = 0, same = 0; const seen = new Set(), changes = [], added = [];
+    r.rows.forEach((x) => {
+      seen.add(x.id);
+      const o = old.get(x.id);
+      if (!o) { add++; added.push(x); return; }
+      const n = flat(x), diffs = [];
+      new Set([...Object.keys(o), ...Object.keys(n)]).forEach((k) => { if (String(o[k] ?? '') !== String(n[k] ?? '')) diffs.push([k, o[k], n[k]]); });
+      if (diffs.length) { chg++; changes.push({ id: x.id, diffs }); } else same++;
+    });
+    const removed = []; old.forEach((v, k) => { if (!seen.has(k)) removed.push(v); });
+    const rem = removed.length;
+    staged = { rows: r.rows, warnings: r.warnings, sheet: r.sheet, name: f.name, add, chg, same, rem, changes, added, removed };
     showStaged();
   } catch (e) { pv.innerHTML = `<div class="note warn">❌ ${esc(e.message || e)}</div>`; }
 }
 /** يرسل الملف المشفّر إلى دالة النشر في الاستضافة ليصل لكل المستخدمين */
-async function publishToAll(packet) {
+async function publishToAll(packet, meta) {
   let res;
   try {
-    res = await fetch('/api/publish', { method: 'POST', headers: { 'content-type': 'application/json', 'x-admin': cred }, body: JSON.stringify(packet) });
+    res = await api('/api/publish', { method: 'POST', headers: { 'x-meta': JSON.stringify(meta) }, body: JSON.stringify(packet) });
   } catch { throw new Error('تعذّر الاتصال بالخادم. تأكد من الإنترنت.'); }
   if (res.ok) return;
   const { error } = await res.json().catch(() => ({}));
   if (error === 'not-configured') throw new Error('تخزين النشر غير مفعّل في الاستضافة بعد (خطوة واحدة تُعمل مرة واحدة فقط).');
-  if (error === 'unauthorized') throw new Error('بيانات الدخول غير صحيحة. سجّل الخروج ثم ادخل من جديد.');
+  if (error === 'unauthorized') throw new Error('انتهت الجلسة. سجّل الخروج ثم ادخل من جديد.');
   throw new Error(`فشل النشر (${res.status})`);
+}
+
+const cut = (v) => { const t = String(v ?? '').trim(); return t ? (t.length > 40 ? t.slice(0, 40) + '…' : t) : '—'; };
+function diffHtml(s) {
+  const lbl = (k) => FIELD_LABELS[k] || k;
+  const ch = s.changes.slice(0, 40).map((c) => `<div class="dfr"><b class="en">${esc(c.id)}</b>${c.diffs.slice(0, 6).map(([k, o, n]) => `<div><span>${esc(lbl(k))}</span><del>${esc(cut(o))}</del><ins>${esc(cut(n))}</ins></div>`).join('')}${c.diffs.length > 6 ? `<small>+${c.diffs.length - 6} حقول أخرى</small>` : ''}</div>`).join('');
+  const list = (arr, n = 30) => arr.slice(0, n).map((r) => `<span class="chip en">${esc(r.id)}</span>`).join('') + (arr.length > n ? `<small>+${arr.length - n}</small>` : '');
+  return `${s.chg ? `<details><summary>✏️ المواقع المعدّلة (${s.chg}) — ما كان وما صار</summary><div class="dfs">${ch}${s.chg > 40 ? `<small>يعرض أول 40 من ${s.chg}</small>` : ''}</div></details>` : ''}
+    ${s.add ? `<details><summary>➕ مواقع جديدة (${s.add})</summary><div class="chips">${list(s.added)}</div></details>` : ''}
+    ${s.rem ? `<details open><summary>🗑️ مواقع ستُحذف (${s.rem})</summary><div class="chips">${list(s.removed)}</div></details>` : ''}`;
 }
 
 function showStaged() {
@@ -177,16 +228,18 @@ function showStaged() {
   pv.innerHTML = `<div class="sp"></div><div class="kpis"><div class="kpi acc"><small>إجمالي المواقع</small><b>${s.rows.length}</b></div><div class="kpi"><small>جديدة</small><b>${s.add}</b></div><div class="kpi"><small>معدّلة</small><b>${s.chg}</b></div><div class="kpi bad"><small>محذوفة</small><b>${s.rem}</b></div></div>
     <div class="note">الملف: <b class="en">${esc(s.name)}</b> · الورقة: <b>${esc(s.sheet)}</b> · بدون تغيير: ${s.same}</div>
     ${s.warnings.length ? `<div class="note warn">${s.warnings.map(esc).join('<br>')}</div>` : ''}
+    ${diffHtml(s)}
     <div class="form"><button class="btn pri" id="pub" type="button" style="height:48px;font-size:16px">🚀 نشر للجميع</button>
     <div class="err" id="ue"></div><div id="um"></div></div>`;
   $('#pub').onclick = async () => {
     const b = $('#pub'); b.disabled = true; $('#ue').textContent = ''; $('#um').innerHTML = '<div class="note">جارٍ النشر…</div>';
     try {
       const packet = await Core.seal(s.rows, '');
-      await publishToAll(packet);
+      await publishToAll(packet, { add: s.add, chg: s.chg, rem: s.rem, name: s.name });
       state.code = ''; LS.set('brm_code', ''); setRows(s.rows, packet);
       document.dispatchEvent(new CustomEvent('botrm:data'));
-      $('#um').innerHTML = '<div class="note">✅ تم النشر. يصل التحديث لكل المستخدمين خلال ثوانٍ (عند فتحهم للتطبيق).</div>';
+      $('#um').innerHTML = '<div class="note ok">✅ تم النشر. يصل التحديث لكل المستخدمين خلال ثوانٍ. إن حدث خطأ يمكنك التراجع من «سجل النسخ» أدناه.</div>';
+      loadVersions();
       staged = null;
     } catch (e) { $('#um').innerHTML = ''; $('#ue').textContent = '❌ ' + (e.message || e); b.disabled = false; }
   };

@@ -5,6 +5,7 @@ import { LS } from '../lib/storage.js';
 import { govName } from '../lib/labels.js';
 import { state } from '../data/store.js';
 import { setQuery } from './search.js';
+import { ICONS } from '../lib/icons.js';
 
 const NONE = 'غير محدد';
 const PAGE = 80;
@@ -55,7 +56,7 @@ function render() {
       <div class="bsec"><label>المحافظة</label><div class="gchips">${govChips}</div></div>
       <div class="bsec"><label for="bTech">الفني</label><select id="bTech" class="inp">${techOpts}</select></div>
       <div class="bsum"><div><b>${list.length}</b> موقع</div><div class="sevs">${['S1', 'S2', 'S3'].filter((s) => sev.get(s)).map((s) => `<span class="bd ${s.toLowerCase()}">${s} · ${sev.get(s)}</span>`).join('')}</div></div>
-      <div class="exp"><button class="btn wa" id="bShare" type="button"${list.length ? '' : ' disabled'}>📤 صورة للواتساب</button><button class="btn pdf" id="bPdf" type="button"${list.length ? '' : ' disabled'}>📄 تصدير PDF</button></div>
+      <div class="exp"><button class="btn wa" id="bShare" type="button"${list.length ? '' : ' disabled'}>${ICONS.wa}صورة للواتساب</button><button class="btn pdf" id="bPdf" type="button"${list.length ? '' : ' disabled'}>${ICONS.pdf}تصدير PDF</button></div>
       <input id="bText" class="inp" type="search" inputmode="search" placeholder="ابحث داخل النتائج (رقم أو عنوان)" value="${esc(sel.text)}">
       <div class="list">${rows || '<div class="notfound"><b>لا توجد مواقع</b>غيّر المحافظة أو الفني.</div>'}</div>
       ${list.length > shown ? `<button class="btn" id="bMore" type="button" style="width:100%;margin-top:10px">عرض المزيد (${list.length - shown})</button>` : ''}`
@@ -101,7 +102,7 @@ async function exportList(kind) {
     note: kind !== 'pdf' && all.length > MAXIMG ? `عرض أول ${MAXIMG} من ${all.length} — حدّد المحافظة أو الفني لعرض الباقي` : '',
   };
   const items = list.map((r) => ({ id: r.id, nm: r.nm, sev: r.sev, govLabel: [multi ? clusterOf(r) : '', govName(r.gov)].filter(Boolean).join(' · '), tech: techOf(r) === NONE ? '' : techOf(r), phone: firstPhone(r) }));
-  const old = btn.textContent;
+  const old = btn.innerHTML;
   btn.disabled = true; btn.textContent = 'جارٍ الإنشاء…';
   try {
     const ex = await import('./exportImage.js');
@@ -118,7 +119,7 @@ async function exportList(kind) {
   } catch (e) {
     console.error(e);
     alert('تعذّر الإنشاء');
-  } finally { btn.disabled = false; btn.textContent = old; }
+  } finally { btn.disabled = false; btn.innerHTML = old; }
 }
 
 function previewPdf(ex, file, text, n) {
@@ -146,7 +147,7 @@ function previewImages(ex, blobs, name, text) {
   const m = document.createElement('div');
   m.className = 'pv';
   m.innerHTML = `<div class="pvbox"><div class="pvimgs">${urls.map((u) => `<img src="${u}" alt="">`).join('')}</div>
-    <div class="pvbar"><button class="btn wa" data-a="share">مشاركة على واتساب</button><button class="btn" data-a="save">حفظ الصورة</button><button class="btn" data-a="x">إغلاق</button></div></div>`;
+    <div class="pvbar"><button class="btn wa" data-a="share">${ICONS.wa}مشاركة على واتساب</button><button class="btn" data-a="save">${ICONS.save}حفظ الصورة</button><button class="btn" data-a="x">إغلاق</button></div></div>`;
   const done = () => { urls.forEach(URL.revokeObjectURL); m.remove(); };
   m.onclick = async (e) => {
     const a = e.target.closest('[data-a]')?.dataset.a;
@@ -160,8 +161,9 @@ function previewImages(ex, blobs, name, text) {
 function close(fromAction = false) {
   const el = $('#browse');
   if (el.hidden) return;
-  el.hidden = true;
   document.body.classList.remove('no-scroll');
+  el.classList.add('out');
+  setTimeout(() => { el.hidden = true; el.classList.remove('out'); }, 200);
   if (!fromAction && history.state?.browse) history.back();
   else if (fromAction && history.state?.browse) history.replaceState(null, '', location.pathname + location.hash);
 }

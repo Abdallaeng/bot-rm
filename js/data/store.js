@@ -23,6 +23,7 @@ export function setRows(rows, meta = {}) {
   for (const row of rows) {
     fixSwappedCoords(row);
     row._s = normalizeArabic([row.nm, row.mn, row.cl, govName(row.gov), row.gov].filter(Boolean).join(' '));
+    row._p = String(row.mp || '').replace(/[^\d+]+/g, ' ').trim();   // أرقام الهواتف للبحث
     state.byId.set(row.id, row);
   }
 }

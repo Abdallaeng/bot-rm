@@ -1,0 +1,60 @@
+/* لمسات الجمالية: خطوط، حركة، هياكل تحميل، حالات فارغة، شاشات كبيرة */
+:root {
+  --fs-xs: 12px; --fs-sm: 13.5px; --fs-md: 15.5px; --fs-lg: 18px; --fs-xl: 24px; --fs-2xl: 40px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}
+.stat b, .li .n, .id-n, .kpi b, .bsum b, .chip, .bd, .bar em, .tbl td, .cchip span, .gchip span { font-variant-numeric: tabular-nums lining-nums; }
+.ic { width: 1.15em; height: 1.15em; flex: none; vertical-align: -.2em; }
+.btn .ic { width: 17px; height: 17px; }
+
+/* هياكل التحميل */
+@keyframes shimmer { from { background-position: 160% 0; } to { background-position: -60% 0; } }
+.sk, .skel { position: relative; overflow: hidden; border-radius: 14px; background: linear-gradient(100deg, var(--surf) 30%, color-mix(in srgb, var(--acc) 14%, var(--surf)) 50%, var(--surf) 70%) 0 0 / 220% 100%; animation: shimmer 1.3s linear infinite; }
+.stat.sk { height: 66px; border: 1px solid var(--line); }
+.skel { height: 14px; margin: 10px 0; }
+.skel.h { height: 90px; border-radius: 14px; }
+
+/* مؤشر الاتصال */
+.conn { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 12px auto 0; font-size: var(--fs-xs); color: var(--mut); }
+.conn i { width: 8px; height: 8px; border-radius: 50%; background: var(--s3); box-shadow: 0 0 0 0 color-mix(in srgb, var(--s3) 60%, transparent); animation: pulse 2.4s infinite; }
+.conn.off i { background: var(--s2); animation: none; }
+.conn.old i { background: var(--s2); }
+@keyframes pulse { 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.has-result .conn { display: none; }
+
+/* الحالة الفارغة */
+.empty { padding: 26px 18px 20px; text-align: center; color: var(--mut); border: 1.5px dashed var(--line); border-radius: var(--r); background: var(--surf); animation: up .35s var(--ease) both; }
+.empty svg { width: 86px; height: 86px; margin: 0 auto 6px; display: block; color: var(--acc); }
+.empty b { display: block; margin-bottom: 4px; font-size: 19px; font-weight: 600; color: var(--tx); }
+.empty .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 14px; }
+.empty small { display: block; margin-top: 14px; font-size: var(--fs-xs); }
+
+/* بطاقة الموقع: لمسة لون حسب الخطورة */
+.card.sev-s1 { background-image: linear-gradient(180deg, color-mix(in srgb, var(--s1) 9%, transparent), transparent 140px); }
+.card.sev-s2 { background-image: linear-gradient(180deg, color-mix(in srgb, var(--s2) 9%, transparent), transparent 140px); }
+.card.sev-s3 { background-image: linear-gradient(180deg, color-mix(in srgb, var(--s3) 8%, transparent), transparent 140px); }
+
+/* انتقالات الشاشات */
+.sheet.out { animation: sheetOut .22s var(--ease) both; }
+@keyframes sheetOut { to { transform: translateY(24px); opacity: 0; } }
+.pv { animation: fade .2s both; }
+.pvbox { animation: pop .3s var(--ease) both; }
+@keyframes fade { from { opacity: 0; } }
+@keyframes pop { from { opacity: 0; transform: translateY(18px) scale(.97); } }
+.li, .btn, .cchip, .gchip { transition-timing-function: var(--ease); }
+
+/* شاشات كبيرة: عرض أوسع، والبحث حسب الكلستر بعمودين */
+@media (min-width: 1000px) {
+  .app { max-width: 1040px; }
+  .hero { max-width: 760px; margin-inline: auto; }
+  .has-result #out { max-width: 760px; margin-inline: auto; }
+  .list { display: grid; grid-template-columns: 1fr 1fr; }
+  .li .nm { white-space: normal; }
+  .bscroll { max-width: 900px; }
+  .pvbox { width: min(760px, 100%); }
+}
+@media (min-width: 700px) and (max-width: 999px) { .list { grid-template-columns: 1fr 1fr; display: grid; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}

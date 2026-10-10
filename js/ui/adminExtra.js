@@ -84,13 +84,18 @@ function dataChecks() {
 export async function tabAlerts(el, api, current) {
   el.innerHTML = '<div class="note">جارٍ الفحص…</div>';
   const items = dataChecks();
-  let stErr = '';
+  let stErr = '', digest = '';
   try {
     const r = await api('/api/stats?days=7');
     if (!r.ok) stErr = explain(r.status);
     else {
       const st = await r.json();
       const s = st.days.reduce((t, d) => t + d.s, 0), m = st.days.reduce((t, d) => t + d.m, 0);
+      {
+        const t = st.days.at(-1), top = t.top.slice(0, 5).map(([q, n]) => `${q} (${n})`).join('، ') || '—', ms = t.miss.slice(0, 5).map(([q, n]) => `${q} (${n})`).join('، ') || '—';
+        const peak = t.h.indexOf(Math.max(...t.h));
+        digest = `📊 ملخص Bot Rm — ${new Date().toLocaleDateString('en-GB')}\n• عمليات البحث اليوم: ${t.s} (أجهزة: ${t.u})\n• بدون نتيجة: ${t.m}\n• ساعة الذروة: ${t.s ? peak + ':00' : '—'}\n• الأكثر بحثاً: ${top}\n• مطلوبة وغير موجودة: ${ms}\n• آخر 7 أيام: ${s} عملية بحث`;
+      }
       const today = st.days.at(-1), prev = st.days.slice(0, -1).filter((d) => d.s);
       const avg = prev.length ? prev.reduce((t, d) => t + d.s, 0) / prev.length : 0;
       if (s && m / s > 0.25) items.unshift(['warn', '🔎', `نسبة البحث بلا نتيجة مرتفعة (${Math.round(m / s * 100)}%)`, 'راجع قائمة "بحث بلا نتيجة" في التقارير: قد تكون مواقع ناقصة من الملف.']);
@@ -109,6 +114,31 @@ export async function tabAlerts(el, api, current) {
   const nBad = items.filter((i) => i[0] === 'bad').length, nWarn = items.filter((i) => i[0] === 'warn').length;
   el.innerHTML = `<div class="note ${nBad || nWarn ? 'warn' : 'ok'}">${nBad || nWarn ? `🔔 ${nBad} عاجل · ${nWarn} للمراجعة` : '✅ كل شيء سليم'}</div>
     ${items.map(([lv, ic, t, d]) => `<div class="alr ${lv}"><span class="ai">${ic}</span><div><b>${esc(t)}</b><span>${esc(d)}</span></div></div>`).join('')}
-    <button class="btn" id="alrRe" type="button">🔄 إعادة الفحص</button>`;
+    <button class="btn" id="alrRe" type="button">🔄 إعادة الفحص</button>
+    <div class="h4">📝 ملخص اليوم (للمشاركة)</div><textarea class="inp" id="dgText" readonly>${esc(digest)}</textarea>
+    <div class="sp"></div><div class="row"><button class="btn pri" id="dgShare" type="button">📤 مشاركة</button><button class="btn" id="dgCopy" type="button">📋 نسخ</button></div>`;
+  el.querySelector('#dgCopy').onclick = async () => { try { await navigator.clipboard.writeText(digest); toast('تم النسخ'); } catch { el.querySelector('#dgText').select(); } };
+  el.querySelector('#dgShare').onclick = async () => { if (navigator.share) { try { await navigator.share({ text: digest }); } catch { /* ألغى */ } } else { try { await navigator.clipboard.writeText(digest); toast('تم النسخ'); } catch { /* */ } } };
   el.querySelector('#alrRe').onclick = () => tabAlerts(el, api, current);
+}
+
+/* ---------------- الأمان ---------------- */
+export function tabSecurity(el, api) {
+  el.innerHTML = `<div class="note">تسجيل الدخول يتم في الخادم، ويُغلق بعد 5 محاولات خاطئة لمدة 15 دقيقة. تنتهي الجلسة بعد 12 ساعة، وتغيير كلمة المرور يُنهي كل الجلسات القديمة.</div>
+    <div class="h4">تغيير كلمة المرور (المستخدم: <span class="en">admin</span>)</div>
+    <form class="form" id="pwf" autocomplete="off">
+      <div><label>كلمة المرور الحالية</label><input class="inp ltr" id="pwo" type="password" autocomplete="current-password" required></div>
+      <div><label>كلمة المرور الجديدة (8 أحرف على الأقل، أرقام وحروف)</label><input class="inp ltr" id="pwn" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div><label>تأكيد كلمة المرور الجديدة</label><input class="inp ltr" id="pwc" type="password" autocomplete="new-password" required></div>
+      <button class="btn pri" style="height:46px">🔐 تغيير كلمة المرور</button><div class="err" id="pwe"></div></form>`;
+  el.querySelector('#pwf').onsubmit = async (e) => {
+    e.preventDefault();
+    const err = el.querySelector('#pwe'); err.textContent = '';
+    const next = el.querySelector('#pwn').value;
+    if (next !== el.querySelector('#pwc').value) { err.textContent = 'التأكيد لا يطابق كلمة المرور الجديدة.'; return; }
+    const r = await api('/api/password', { method: 'POST', body: JSON.stringify({ old: el.querySelector('#pwo').value, next }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { toast('تم تغيير كلمة المرور. سجّل الدخول من جديد.'); document.getElementById('dlg').close(); }
+    else err.textContent = j.error === 'wrong-old' ? 'كلمة المرور الحالية غير صحيحة.' : j.error === 'weak' ? `كلمة المرور ضعيفة: ${j.hint}.` : j.error === 'unauthorized' ? 'انتهت الجلسة، ادخل من جديد.' : 'تعذّر التغيير.';
+  };
 }
