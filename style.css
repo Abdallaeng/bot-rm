@@ -1,26 +1,26 @@
 :root{
-  --bg:#0c0f2e;--bg2:#12163d;--surf:rgba(24,29,74,.78);--surf2:#1d2357;--line:rgba(160,170,255,.17);
-  --tx:#f1f2ff;--mut:#a0a6d6;--acc:#ffc94a;--accfg:#1a1400;
+  --bg:#06222b;--bg2:#0a2f3b;--surf:rgba(10,47,59,.80);--surf2:#0f3a48;--line:rgba(150,215,235,.17);
+  --tx:#eef8fb;--mut:#9dbfca;--acc:#3cc3df;--accfg:#03171d;
   --s1:#ff5470;--s2:#ff9b4a;--s3:#48e0a0;--ok:#48e0a0;--bad:#ff5470;
-  --shadow:0 20px 50px -18px rgba(0,0,20,.7);--r:16px;--sh:400px;
-  --sky1:#0c0f2e;--sky2:#2a1f6b;--sky3:#8a3a86;--sky4:#ff8a63;
-  --glow:#ff8a63;--ring:#ffc94a;--hill1:#1a1650;--hill2:#110f38;--ground:#080a22;
-  --tower:#080a22;--tower-far:#1b1858;--mark-bg:#ffc94a;--mark:#1a1400;
+  --shadow:0 20px 50px -18px rgba(0,12,18,.7);--r:16px;--sh:400px;
+  --sky1:#03141b;--sky2:#0a3342;--sky3:#1f8aa3;--sky4:#9fdcea;
+  --glow:#7fd6ea;--ring:#a8eefc;--hill1:#0b3a48;--hill2:#072a35;--ground:#041a22;
+  --tower:#03141b;--tower-far:#0d4658;--mark-bg:#3cc3df;--mark:#03171d;
 }
 @media (prefers-color-scheme:light){:root:not([data-theme=dark]){
-  --bg:#f4f2fb;--bg2:#ebe8f7;--surf:rgba(255,255,255,.92);--surf2:#f1eefc;--line:rgba(60,50,160,.16);
-  --tx:#17154a;--mut:#5d5a8f;--acc:#4b34d8;--accfg:#fff;--s1:#d6224a;--s2:#d86a0c;--s3:#0f9a63;--ok:#0f9a63;--bad:#d6224a;
-  --shadow:0 18px 40px -20px rgba(40,30,120,.35);
-  --sky1:#8e86e6;--sky2:#c7a8ee;--sky3:#ffc3b0;--sky4:#ffe2b8;
-  --glow:#ffd6a0;--ring:#ff8f1f;--hill1:#a89ce0;--hill2:#7e72c8;--ground:#4f45a8;
-  --tower:#2a2478;--tower-far:#8f84d6;--mark-bg:#4b34d8;--mark:#fff}}
+  --bg:#f3f7f8;--bg2:#e7eff2;--surf:rgba(255,255,255,.94);--surf2:#eef5f7;--line:rgba(20,90,110,.16);
+  --tx:#0d2a33;--mut:#566f78;--acc:#1b7f98;--accfg:#fff;--s1:#d6224a;--s2:#d86a0c;--s3:#0f9a63;--ok:#0f9a63;--bad:#d6224a;
+  --shadow:0 18px 40px -20px rgba(10,70,90,.30);
+  --sky1:#2d8aa4;--sky2:#6cc0d3;--sky3:#bfe6ee;--sky4:#eef8fa;
+  --glow:#ffffff;--ring:#ffffff;--hill1:#8fc9d6;--hill2:#5fa9bb;--ground:#2f7f93;
+  --tower:#0f4b5d;--tower-far:#78b9c8;--mark-bg:#1b7f98;--mark:#fff}}
 :root[data-theme=light]{
-  --bg:#f4f2fb;--bg2:#ebe8f7;--surf:rgba(255,255,255,.92);--surf2:#f1eefc;--line:rgba(60,50,160,.16);
-  --tx:#17154a;--mut:#5d5a8f;--acc:#4b34d8;--accfg:#fff;--s1:#d6224a;--s2:#d86a0c;--s3:#0f9a63;--ok:#0f9a63;--bad:#d6224a;
-  --shadow:0 18px 40px -20px rgba(40,30,120,.35);
-  --sky1:#8e86e6;--sky2:#c7a8ee;--sky3:#ffc3b0;--sky4:#ffe2b8;
-  --glow:#ffd6a0;--ring:#ff8f1f;--hill1:#a89ce0;--hill2:#7e72c8;--ground:#4f45a8;
-  --tower:#2a2478;--tower-far:#8f84d6;--mark-bg:#4b34d8;--mark:#fff}
+  --bg:#f3f7f8;--bg2:#e7eff2;--surf:rgba(255,255,255,.94);--surf2:#eef5f7;--line:rgba(20,90,110,.16);
+  --tx:#0d2a33;--mut:#566f78;--acc:#1b7f98;--accfg:#fff;--s1:#d6224a;--s2:#d86a0c;--s3:#0f9a63;--ok:#0f9a63;--bad:#d6224a;
+  --shadow:0 18px 40px -20px rgba(10,70,90,.30);
+  --sky1:#2d8aa4;--sky2:#6cc0d3;--sky3:#bfe6ee;--sky4:#eef8fa;
+  --glow:#ffffff;--ring:#ffffff;--hill1:#8fc9d6;--hill2:#5fa9bb;--ground:#2f7f93;
+  --tower:#0f4b5d;--tower-far:#78b9c8;--mark-bg:#1b7f98;--mark:#fff}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{color-scheme:dark light}
 body{margin:0;min-height:100vh;min-height:100dvh;background:var(--bg);color:var(--tx);
@@ -55,8 +55,10 @@ body.has-result{--sh:170px}
 button{font:inherit;color:inherit;cursor:pointer}
 .top{display:flex;align-items:center;justify-content:space-between;padding:calc(14px + env(safe-area-inset-top)) 0 6px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:700}
-.brand svg{width:34px;height:34px;filter:drop-shadow(0 4px 10px rgba(0,0,0,.25))}
-.brand b{font-size:20px;direction:ltr;letter-spacing:.2px;color:#fff;text-shadow:0 1px 8px rgba(10,10,50,.45)}
+.brand img{width:42px;height:42px;border-radius:50%;background:#fff;box-shadow:0 4px 14px rgba(0,20,30,.35);display:block}
+.brand span{display:flex;flex-direction:column;line-height:1.15}
+.brand b{font-size:19px;direction:ltr;text-align:start;letter-spacing:.3px;color:#fff;text-shadow:0 1px 8px rgba(0,20,30,.5)}
+.brand small{font-size:11.5px;font-weight:500;color:rgba(255,255,255,.85);text-shadow:0 1px 6px rgba(0,20,30,.5)}
 .btn{text-decoration:none;border:1px solid var(--line);background:var(--surf);padding:8px 14px;border-radius:11px;display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;color:var(--tx);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:transform .15s,border-color .15s,color .15s,filter .15s}
 .btn:hover{border-color:var(--acc);color:var(--acc)}
 .btn:active{transform:scale(.97)}
@@ -142,7 +144,9 @@ button.chip:hover{border-color:var(--acc);color:var(--acc)}
 .simi{margin-top:14px}
 .simi small{color:var(--mut);display:block;margin-bottom:6px}
 .simi div{display:flex;flex-wrap:wrap;gap:8px}
-.foot{margin-top:34px;text-align:center;color:var(--mut);font-size:12.5px}
+.foot{margin-top:36px;padding-top:20px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:12px;color:var(--mut);font-size:12.5px;text-align:start}
+.foot img{border-radius:50%;background:#fff;flex:none}
+.foot div{display:flex;flex-direction:column;gap:2px}.foot b{color:var(--tx);font-weight:600;font-size:13px}
 .toast{position:fixed;inset-inline:0;bottom:calc(22px + env(safe-area-inset-bottom));margin:auto;width:max-content;max-width:90vw;background:var(--tx);color:var(--bg);padding:9px 18px;border-radius:99px;font-weight:600;z-index:99;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none}
 .toast.on{opacity:1;transform:none}
 
@@ -156,7 +160,7 @@ button.chip:hover{border-color:var(--acc);color:var(--acc)}
 .gate .inp{text-align:center;margin-bottom:12px;direction:ltr}
 .err{color:var(--bad);font-size:14px;min-height:20px;margin-top:8px;font-weight:500}
 dialog{border:1px solid var(--line);background:var(--bg2);color:var(--tx);border-radius:20px;padding:0;width:min(720px,calc(100vw - 20px));max-height:calc(100dvh - 24px);box-shadow:var(--shadow);overflow:hidden}
-dialog::backdrop{background:rgba(6,6,28,.74);backdrop-filter:blur(4px)}
+dialog::backdrop{background:rgba(2,16,22,.74);backdrop-filter:blur(4px)}
 dialog[open]{display:flex;flex-direction:column;animation:up .25s ease both}
 .dh{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line)}
 .dh b{font-size:17px;font-weight:600}

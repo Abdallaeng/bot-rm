@@ -63,7 +63,7 @@
     const q = $('#q');
     q.disabled = false;
     $('#meta').innerHTML = `<span class="chip">عدد المواقع <b>${rows.length.toLocaleString('en')}</b></span>` + (pkt.updated ? `<span class="chip">آخر تحديث <b>${fmtDate(pkt.updated)}</b></span>` : '');
-    $('#foot').textContent = 'Bot Rm · للاستخدام الداخلي';
+    $('#foot').innerHTML = '<img src="icons/seal.png" alt="" width="54" height="54"><div><b>شركة ربوع المعالي للتجارة والمقاولات العامة المحدودة</b><span>Bot Rm · للاستخدام الداخلي</span></div>';
     renderRecent();
     q.addEventListener('input', onInput);
     $('#form').addEventListener('submit', e => { e.preventDefault(); clearTimeout(timer); run(true); q.blur(); });
