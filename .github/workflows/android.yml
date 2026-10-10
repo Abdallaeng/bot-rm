@@ -25,7 +25,11 @@ jobs:
         working-directory: android
         env:
           RUN_NUMBER: ${{ github.run_number }}
-        run: gradle assembleRelease --no-daemon
+        run: gradle assembleRelease --no-daemon 2>&1 | tee ../build.log; exit ${PIPESTATUS[0]}
+      - name: Report errors
+        if: failure()
+        run: |
+          grep -E -A4 'error:|What went wrong|FAILED' build.log | head -30 | while IFS= read -r l; do echo "::error::$l"; done
       - name: Publish release asset
         env:
           GH_TOKEN: ${{ github.token }}
