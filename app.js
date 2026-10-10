@@ -29,6 +29,7 @@
   }
   function setRows(rows, meta) {
     ROWS = rows; META = meta || {};
+    ROWS.forEach(r => { const lo = +r.lon, la = +r.lat; if (lo && la && !(lo > 38 && lo < 49.5 && la > 28.5 && la < 37.5) && (la > 38 && la < 49.5 && lo > 28.5 && lo < 37.5)) { r.lon = la; r.lat = lo; } });
     BY = new Map(rows.map(r => [r.id, r]));
     ROWS.forEach(r => { r._s = normAr([r.nm, r.mn, r.cl, GOV[r.gov] || r.gov, r.gov].filter(Boolean).join(' ')); });
   }
@@ -57,12 +58,28 @@
   }
   function renderShell() { /* الهيكل موجود في index.html */ }
 
+  function statsHtml(rows, upd) {
+    const n = rows.length, c = new Set(rows.map(r => r.cl).filter(Boolean)).size, g = new Set(rows.map(r => r.gov).filter(Boolean)).size;
+    const st = (v, l) => `<div class="stat"><b data-n="${v}">${v}</b><span>${l}</span></div>`;
+    return st(n, 'موقع') + st(c, 'كلستر') + st(g, 'محافظة') + (upd ? `<div class="stat upd"><b>${fmtDate(upd)}</b><span>آخر تحديث</span></div>` : '');
+  }
+  function countUp() {
+    const els = document.querySelectorAll('.stat b[data-n]');
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { els.forEach(e => e.textContent = (+e.dataset.n).toLocaleString('en')); return; }
+    const t0 = performance.now();
+    (function step(t) {
+      const p = Math.min(1, (t - t0) / 1100), e = 1 - Math.pow(1 - p, 3);
+      els.forEach(el => el.textContent = Math.round(+el.dataset.n * e).toLocaleString('en'));
+      if (p < 1) requestAnimationFrame(step);
+    })(t0);
+  }
   function ready(rows, pkt) {
+
     setRows(rows, pkt);
     flushPending();
     const q = $('#q');
     q.disabled = false;
-    $('#meta').innerHTML = `<span class="chip">عدد المواقع <b>${rows.length.toLocaleString('en')}</b></span>` + (pkt.updated ? `<span class="chip">آخر تحديث <b>${fmtDate(pkt.updated)}</b></span>` : '');
+    $('#meta').innerHTML = statsHtml(ROWS, pkt.updated); countUp(); if (window.SiteMap) SiteMap.init(ROWS);
     $('#foot').innerHTML = '<img src="icons/seal.png" alt="" width="54" height="54"><div><b>شركة ربوع المعالي للتجارة والمقاولات العامة المحدودة</b><span>Bot Rm · للاستخدام الداخلي</span></div>';
     renderRecent();
     q.addEventListener('input', onInput);
@@ -84,11 +101,9 @@
   function currentQuery() { return latin($('#q').value).trim(); }
   let lastResultCount = 0, lastFound = false, shownId = null;
   const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (RM) { const sc = document.getElementById('scene'); sc && sc.pauseAnimations && sc.pauseAnimations(); }
   function ping() {
+    if (window.SiteMap) SiteMap.ping();
     if (RM) return;
-    const sc = document.getElementById('scene'); if (!sc) return;
-    sc.classList.remove('ping'); void sc.getBoundingClientRect(); sc.classList.add('ping');
     const el = document.querySelector('.id-n'); if (!el) return;
     const fin = el.textContent; let n = 0;
     const iv = setInterval(() => {
@@ -100,13 +115,13 @@
     const raw = currentQuery(), out = $('#out');
     document.body.classList.toggle('has-result', !!raw);
     $('#meta').style.display = raw ? 'none' : ''; $('#recent').style.display = raw ? 'none' : '';
-    if (!raw) { out.innerHTML = ''; lastFound = false; shownId = null; history.replaceState(null, '', location.pathname); return; }
+    if (!raw) { out.innerHTML = ''; lastFound = false; shownId = null; if (window.SiteMap) SiteMap.reset(); history.replaceState(null, '', location.pathname); return; }
     history.replaceState(null, '', '#' + encodeURIComponent(raw));
     if (/^\d+$/.test(raw)) {
       const id = String(parseInt(raw, 10));
       const hit = BY.get(raw) || BY.get(id);
       const sim = ROWS.filter(r => r.id !== (hit && hit.id) && r.id.startsWith(raw)).slice(0, 8);
-      if (hit) { out.innerHTML = card(hit) + simHtml(sim); wire(hit); if (shownId !== hit.id) { shownId = hit.id; ping(); } }
+      if (hit) { out.innerHTML = card(hit) + simHtml(sim); wire(hit); if (shownId !== hit.id) { shownId = hit.id; if (window.SiteMap) SiteMap.focus(hit); ping(); } }
       else if (sim.length) { out.innerHTML = `<div class="notfound"><b>لا يوجد موقع بالرقم ${esc(raw)}</b>هل تقصد أحد هذه؟</div>` + simHtml(sim, true); wire(); }
       else out.innerHTML = `<div class="notfound"><b>لا يوجد موقع بالرقم ${esc(raw)}</b>تأكد من الرقم وأعد المحاولة.</div>`;
       lastFound = !!hit; lastResultCount = hit ? 1 : 0;
@@ -156,32 +171,43 @@
   const fld = (l, v, full, raw) => (v === '' || v == null) ? '' : `<div class="f${full ? ' full' : ''}"><label>${l}</label><div>${raw ? v : esc(v)}</div></div>`;
   const dstr = s => /^\d{4}-\d{2}-\d{2}$/.test(s) ? s.split('-').reverse().join('/') : s;
   function mapUrl(r) { return `https://www.google.com/maps?q=${r.lat},${r.lon}`; }
+  const KI = {
+    cl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>',
+    tech: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
+    gov: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+    addr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 3l9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>'
+  };
+  function tile(cls, ico, label, body, extra) { return `<div class="k ${cls}"><span class="ki">${ico}</span><div class="kb"><small>${label}</small>${body}${extra || ''}</div></div>`; }
   function card(r) {
     const sevc = r.sev ? r.sev.toLowerCase() : '';
     const hasGeo = r.lat && r.lon;
     const dates = [['تاريخ الإعلان', r.ad], ['إعلان Hybrid', r.ah], ['إعلان Normal', r.an]].filter(x => x[1]).map(x => fld(x[0], dstr(x[1]), false, false)).join('');
+    const none = '<b class="k-none">غير محدد في الملف</b>';
+    const extraC = [r.inv ? fld('رقم الفاتورة', phoneBlock(r.inv), false, true) : '', r.own ? fld('رقم صاحب الموقع', phoneBlock(r.own), false, true) : ''].join('');
     return `<article class="card${sevc ? ' sev-' + sevc : ''}">
       <div class="head"><div><div class="id">رقم الموقع</div><div class="id-n">${esc(r.id)}</div>
-        <div class="badges">${r.sev ? `<span class="bd ${sevc}">${esc(r.sev)}</span>` : ''}${r.st ? `<span class="bd">${esc(r.st)}</span>` : ''}${r.ven ? `<span class="bd">${esc(r.ven)}</span>` : ''}${r.gov ? `<span class="bd" style="direction:rtl">${esc(GOV[r.gov] || r.gov)}</span>` : ''}</div></div>
+        <div class="badges">${r.sev ? `<span class="bd ${sevc}">${esc(r.sev)}</span>` : ''}${r.st ? `<span class="bd">${esc(r.st)}</span>` : ''}${r.ven ? `<span class="bd">${esc(r.ven)}</span>` : ''}${r.io ? `<span class="bd" style="direction:rtl">${esc(IO[r.io] || r.io)}</span>` : ''}</div></div>
         <div class="acts">${hasGeo ? `<a class="btn pri" href="${mapUrl(r)}" target="_blank" rel="noopener">${IC.map}الخريطة</a>` : ''}<button class="btn" id="shareBtn" type="button">${IC.share}مشاركة</button><button class="btn ghost" id="copyBtn" type="button">${IC.copy}نسخ</button></div></div>
-      <div class="cluster ${r.cl ? '' : 'none'}"><span class="av">${r.cl ? esc(r.cl.replace(/^حجي\s*/, '').charAt(0) || '؟') : '؟'}</span><div><small>المشرف · Cluster</small><b>${r.cl ? esc(r.cl) : 'غير محدد في الملف'}</b></div></div>
-      <div class="sec"><h3>الموقع</h3><div class="grid">
-        ${fld('اسم / عنوان الموقع', r.nm, true)}
-        ${fld('المحافظة', GOV[r.gov] || r.gov)}${fld('نوع الموقع', IO[r.io] || r.io)}
-        ${fld('التصنيف', r.t2, false, false).replace('<div>', '<div class="en">')}${fld('المواقع المرتبطة', r.as != null ? r.as : '')}
-        ${hasGeo ? fld('الإحداثيات', `<span class="en">${r.lat}, ${r.lon}</span>`, true, true) : ''}
-      </div></div>
-      <div class="sec"><h3>الفريق</h3><div class="grid">${fld('المقاول الفرعي', r.sub, false, false).replace('<div>', '<div class="en">')}${fld('المورّد', r.ven, false, false).replace('<div>', '<div class="en">')}</div></div>
-      <div class="sec"><h3>جهات الاتصال</h3><div class="grid">
-        ${fld('المسؤول عن الموقع', r.mn)}${fld('رقم المسؤول', phoneBlock(r.mp), true, true)}
-        ${r.inv ? fld('رقم الفاتورة', phoneBlock(r.inv), true, true) : ''}${r.own ? fld('رقم صاحب الموقع', phoneBlock(r.own), true, true) : ''}
-      </div></div>
-      ${dates ? `<div class="sec"><h3>الإعلان</h3><div class="grid">${dates}</div></div>` : ''}
-      ${r.cm ? `<div class="sec"><h3>ملاحظات</h3><div class="grid">${fld('', r.cm, true)}</div></div>` : ''}
+      <div class="key">
+        ${tile('k-cl' + (r.cl ? '' : ' none'), KI.cl, 'الكلستر', r.cl ? `<b>${esc(r.cl)}</b>` : none)}
+        ${tile('k-tech', KI.tech, 'الفني', r.mn ? `<b>${esc(r.mn)}</b>` : none, r.mp ? phoneBlock(r.mp) : '')}
+        ${tile('k-gov', KI.gov, 'المحافظة', `<b>${esc(GOV[r.gov] || r.gov || '—')}</b>`)}
+        ${tile('k-addr', KI.addr, 'العنوان', r.nm ? `<b>${esc(r.nm)}</b>` : none)}
+      </div>
+      <div class="more">
+        <div class="sec"><h3>تفاصيل الموقع</h3><div class="grid">
+          ${fld('التصنيف', r.t2, false, false).replace('<div>', '<div class="en">')}${fld('المواقع المرتبطة', r.as != null ? r.as : '')}
+          ${hasGeo ? fld('الإحداثيات', `<span class="en">${r.lat}, ${r.lon}</span>`, true, true) : ''}
+        </div></div>
+        <div class="sec"><h3>الفريق</h3><div class="grid">${fld('المقاول الفرعي', r.sub, false, false).replace('<div>', '<div class="en">')}${fld('المورّد', r.ven, false, false).replace('<div>', '<div class="en">')}</div></div>
+        ${extraC ? `<div class="sec"><h3>جهات اتصال أخرى</h3><div class="grid">${extraC}</div></div>` : ''}
+        ${dates ? `<div class="sec"><h3>الإعلان</h3><div class="grid">${dates}</div></div>` : ''}
+        ${r.cm ? `<div class="sec"><h3>ملاحظات</h3><div class="grid">${fld('', r.cm, true)}</div></div>` : ''}
+      </div>
     </article>`;
   }
   function plainText(r) {
-    const L = [`📍 موقع ${r.id}`, r.nm, `المحافظة: ${GOV[r.gov] || r.gov || '-'}`, `Severity: ${r.sev || '-'}  |  ${r.st || ''}`, r.cl ? `المشرف: ${r.cl}` : '', r.mn ? `المسؤول: ${r.mn}` : '', r.mp ? `رقم المسؤول: ${r.mp}` : '', r.inv ? `رقم الفاتورة: ${r.inv}` : '', r.own ? `رقم صاحب الموقع: ${r.own}` : '', r.lat && r.lon ? mapUrl(r) : ''];
+    const L = [`📍 موقع ${r.id}`, r.nm, `المحافظة: ${GOV[r.gov] || r.gov || '-'}`, `Severity: ${r.sev || '-'}  |  ${r.st || ''}`, r.cl ? `الكلستر: ${r.cl}` : '', r.mn ? `الفني: ${r.mn}` : '', r.mp ? `رقم الفني: ${r.mp}` : '', r.inv ? `رقم الفاتورة: ${r.inv}` : '', r.own ? `رقم صاحب الموقع: ${r.own}` : '', r.lat && r.lon ? mapUrl(r) : ''];
     return L.filter(Boolean).join('\n');
   }
   async function share(r) {
@@ -363,7 +389,7 @@
         const { pkt, c } = await build();
         await ghPut(JSON.stringify(pkt), `تحديث البيانات (${s.rows.length} موقع)`);
         CODE = c; LS.set('brm_code', c); setRows(s.rows, pkt);
-        $('#meta').innerHTML = `<span class="chip">عدد المواقع <b>${s.rows.length}</b></span><span class="chip">آخر تحديث <b>${fmtDate(pkt.updated)}</b></span>`;
+        $('#meta').innerHTML = statsHtml(ROWS, pkt.updated); countUp(); if (window.SiteMap) SiteMap.update(ROWS);
         $('#um').innerHTML = '<div class="note">✅ تم النشر. سيظهر التحديث للجميع خلال دقيقة تقريباً (بعد أن يعيد الاستضافة بناء الموقع).</div>';
         staged = null;
       } catch (e) { $('#um').innerHTML = ''; $('#ue').textContent = '❌ ' + (e.message || e); b.disabled = false; }

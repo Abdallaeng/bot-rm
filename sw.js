@@ -1,5 +1,5 @@
-const V='botrm-v4';
-const SHELL=['./','index.html','style.css','app.js','core.js','config.js','manifest.webmanifest','icons/icon-192.png','icons/seal.png','icons/icon-512.png'];
+const V='botrm-v5';
+const SHELL=['./','index.html','style.css','app.js','core.js','config.js','manifest.webmanifest','icons/icon-192.png','icons/seal.png','map.js','icons/icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==V).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
 self.addEventListener('fetch',e=>{
