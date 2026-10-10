@@ -154,3 +154,39 @@ summary{cursor:pointer;font-weight:700}
 .bar i{justify-self:start}
 .bar em{text-align:end}
 @media(max-width:520px){.grid{grid-template-columns:1fr 1fr;gap:10px 12px}.sec{padding:12px 14px}.head{padding:14px}}
+
+/* Cluster */
+.cluster{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line);background:linear-gradient(90deg,color-mix(in srgb,var(--acc) 14%,transparent),transparent 75%)}
+.cluster .av{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:22px;font-weight:800;background:var(--acc);color:var(--accfg);flex:none;box-shadow:0 6px 18px color-mix(in srgb,var(--acc) 40%,transparent)}
+.cluster small{display:block;color:var(--mut);font-size:12px;font-weight:600;letter-spacing:.3px}
+.cluster b{font-size:22px;font-weight:800;line-height:1.2}
+.cluster.none{background:none}.cluster.none .av{background:var(--bg2);color:var(--mut);box-shadow:none}.cluster.none b{color:var(--mut);font-size:17px}
+/* حركات خفيفة */
+@keyframes up{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes pop2{0%{opacity:0;transform:scale(.6)}70%{transform:scale(1.08)}100%{opacity:1;transform:none}}
+@keyframes slide{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+@keyframes sheen{to{background-position:-200% 0}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+.card{animation:up .45s cubic-bezier(.2,.8,.2,1) both}
+.card .head .id-n{animation:pop2 .5s .08s cubic-bezier(.2,.8,.2,1) both}
+.card .bd{animation:pop2 .4s both}
+.card .bd:nth-child(1){animation-delay:.18s}.card .bd:nth-child(2){animation-delay:.24s}.card .bd:nth-child(3){animation-delay:.30s}.card .bd:nth-child(4){animation-delay:.36s}
+.cluster{animation:slide .45s .15s both}
+.card .sec{animation:up .45s both}
+.card .sec:nth-of-type(1){animation-delay:.22s}.card .sec:nth-of-type(2){animation-delay:.3s}.card .sec:nth-of-type(3){animation-delay:.38s}.card .sec:nth-of-type(4){animation-delay:.46s}.card .sec:nth-of-type(5){animation-delay:.54s}
+.li{animation:up .35s both;transition:transform .15s,border-color .15s}
+.li:nth-child(2){animation-delay:.04s}.li:nth-child(3){animation-delay:.08s}.li:nth-child(4){animation-delay:.12s}.li:nth-child(5){animation-delay:.16s}.li:nth-child(n+6){animation-delay:.2s}
+.li:hover{transform:translateX(-4px)}
+.simi .chip{animation:pop2 .35s both}
+.btn{transition:transform .15s,border-color .15s,color .15s,filter .15s,box-shadow .15s}
+.btn:hover{transform:translateY(-1px)}.btn:active{transform:scale(.97)}
+.btn.pri:hover{box-shadow:0 8px 20px color-mix(in srgb,var(--acc) 35%,transparent)}
+.ph a.mini{transition:transform .15s,background .15s}.ph a.mini:hover{transform:scale(1.1);background:var(--surf2)}
+.brand svg{animation:float 4s ease-in-out infinite}
+.hero h1{background:linear-gradient(90deg,var(--tx) 0%,var(--acc) 45%,var(--tx) 90%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sheen 6s linear infinite}
+.hero{animation:up .6s both}
+.chip{animation:pop2 .4s .1s both}
+.notfound{animation:up .3s both}
+.search input{transition:border-color .2s,box-shadow .2s,transform .2s}
+.search input:focus{transform:translateY(-1px)}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}

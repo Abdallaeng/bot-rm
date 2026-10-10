@@ -151,13 +151,14 @@
       <div class="head"><div><div class="id">رقم الموقع</div><div class="id-n">${esc(r.id)}</div>
         <div class="badges">${r.sev ? `<span class="bd ${sevc}">${esc(r.sev)}</span>` : ''}${r.st ? `<span class="bd">${esc(r.st)}</span>` : ''}${r.ven ? `<span class="bd">${esc(r.ven)}</span>` : ''}${r.gov ? `<span class="bd" style="direction:rtl">${esc(GOV[r.gov] || r.gov)}</span>` : ''}</div></div>
         <div class="acts">${hasGeo ? `<a class="btn pri" href="${mapUrl(r)}" target="_blank" rel="noopener">${IC.map}الخريطة</a>` : ''}<button class="btn" id="shareBtn" type="button">${IC.share}مشاركة</button><button class="btn ghost" id="copyBtn" type="button">${IC.copy}نسخ</button></div></div>
+      <div class="cluster ${r.cl ? '' : 'none'}"><span class="av">${r.cl ? esc(r.cl.replace(/^حجي\s*/, '').charAt(0) || '؟') : '؟'}</span><div><small>المشرف · Cluster</small><b>${r.cl ? esc(r.cl) : 'غير محدد في الملف'}</b></div></div>
       <div class="sec"><h3>الموقع</h3><div class="grid">
         ${fld('اسم / عنوان الموقع', r.nm, true)}
         ${fld('المحافظة', GOV[r.gov] || r.gov)}${fld('نوع الموقع', IO[r.io] || r.io)}
         ${fld('التصنيف', r.t2, false, false).replace('<div>', '<div class="en">')}${fld('المواقع المرتبطة', r.as != null ? r.as : '')}
         ${hasGeo ? fld('الإحداثيات', `<span class="en">${r.lat}, ${r.lon}</span>`, true, true) : ''}
       </div></div>
-      <div class="sec"><h3>الفريق</h3><div class="grid">${fld('المشرف (Cluster)', r.cl)}${fld('المقاول الفرعي', r.sub, false, false).replace('<div>', '<div class="en">')}</div></div>
+      <div class="sec"><h3>الفريق</h3><div class="grid">${fld('المقاول الفرعي', r.sub, false, false).replace('<div>', '<div class="en">')}${fld('المورّد', r.ven, false, false).replace('<div>', '<div class="en">')}</div></div>
       <div class="sec"><h3>جهات الاتصال</h3><div class="grid">
         ${fld('المسؤول عن الموقع', r.mn)}${fld('رقم المسؤول', phoneBlock(r.mp), true, true)}
         ${r.inv ? fld('رقم الفاتورة', phoneBlock(r.inv), true, true) : ''}${r.own ? fld('رقم صاحب الموقع', phoneBlock(r.own), true, true) : ''}
