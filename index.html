@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Bot Rm — البحث برقم الموقع</title>
 <meta name="description" content="ابحث برقم الموقع واحصل على كل التفاصيل فوراً">
-<meta name="theme-color" content="#0a1020">
+<meta name="theme-color" content="#0c0f2e">
 <meta name="robots" content="noindex,nofollow">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
@@ -16,15 +16,57 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="stage" id="stage" aria-hidden="true">
+<svg id="scene" viewBox="0 0 800 380" preserveAspectRatio="xMidYMin meet" overflow="visible" focusable="false">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="100%" r="70%"><stop offset="0" style="stop-color:var(--glow);stop-opacity:.9"/><stop offset="1" style="stop-color:var(--glow);stop-opacity:0"/></radialGradient>
+    <linearGradient id="beamL" x1="1" y1="0" x2="0" y2="0"><stop offset="0" style="stop-color:var(--ring);stop-opacity:.34"/><stop offset="1" style="stop-color:var(--ring);stop-opacity:0"/></linearGradient>
+    <linearGradient id="beamR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" style="stop-color:var(--ring);stop-opacity:.34"/><stop offset="1" style="stop-color:var(--ring);stop-opacity:0"/></linearGradient>
+    <symbol id="tw" viewBox="0 0 60 200"><path d="M8 195L28 10M52 195L32 10M24.0 50H36.0M20.0 95H40.0M15.0 145H45.0M8.0 195H52.0M28.0 10L36.0 50M32.0 10L24.0 50M24.0 50L40.0 95M36.0 50L20.0 95M20.0 95L45.0 145M40.0 95L15.0 145M15.0 145L52.0 195M45.0 145L8.0 195" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <path id="lk1" d="M96 208Q250 120 400 44"/><path id="lk2" d="M704 196Q560 110 400 44"/><path id="lk3" d="M298 236Q350 130 400 44"/>
+  </defs>
+  <rect x="-900" y="-400" width="2600" height="1100" fill="url(#glow)"/>
+  <g class="stars" fill="#fff">
+    <circle cx="60" cy="40" r="1.2"/><circle cx="150" cy="90" r="1"/><circle cx="240" cy="30" r="1.4"/><circle cx="330" cy="70" r="1"/><circle cx="470" cy="28" r="1.2"/><circle cx="560" cy="80" r="1"/><circle cx="650" cy="36" r="1.5"/><circle cx="740" cy="96" r="1"/><circle cx="20" cy="120" r="1"/><circle cx="780" cy="30" r="1.2"/><circle cx="520" cy="120" r="0.9"/><circle cx="280" cy="130" r="0.9"/>
+  </g>
+  <path d="M-900 300C-700 276-520 304-330 288S60 262 230 288 560 262 760 292 1300 282 1700 300V700H-900Z" fill="var(--hill1)"/>
+  <g class="far" style="color:var(--tower-far)">
+    <use href="#tw" x="78" y="208" width="36" height="120"/><use href="#tw" x="280" y="238" width="32" height="96"/><use href="#tw" x="490" y="232" width="30" height="100"/><use href="#tw" x="684" y="196" width="40" height="132"/>
+    <circle class="bc" cx="96" cy="208" r="2.6" style="animation-delay:.2s"/><circle class="bc" cx="298" cy="238" r="2.4" style="animation-delay:1.1s"/><circle class="bc" cx="505" cy="232" r="2.4" style="animation-delay:.7s"/><circle class="bc" cx="704" cy="196" r="2.8" style="animation-delay:1.7s"/>
+  </g>
+  <g class="links" fill="none" stroke="var(--ring)" stroke-width="1" stroke-dasharray="2 7" stroke-linecap="round" opacity=".6">
+    <use href="#lk1"/><use href="#lk2"/><use href="#lk3"/>
+  </g>
+  <g fill="var(--ring)"><circle r="2.4"><animateMotion dur="4.2s" repeatCount="indefinite" begin="0s" keyPoints="1;0" keyTimes="0;1" calcMode="linear"><mpath href="#lk1"/></animateMotion></circle><circle r="2.4"><animateMotion dur="5s" repeatCount="indefinite" begin="1.4s"><mpath href="#lk2"/></animateMotion></circle><circle r="2"><animateMotion dur="3.4s" repeatCount="indefinite" begin=".6s"><mpath href="#lk3"/></animateMotion></circle></g>
+  <path d="M-900 336C-700 318-520 340-300 330S100 312 300 332 600 318 800 334 1300 326 1700 338V700H-900Z" fill="var(--hill2)"/>
+  <g class="beams"><path class="bm" d="M392 104L-60 40V190Z" fill="url(#beamL)"/><path class="bm b2" d="M408 104L860 40V190Z" fill="url(#beamR)"/></g>
+  <g class="rings" fill="none" stroke="var(--ring)" stroke-width="1.6">
+    <circle class="rg" cx="400" cy="104" r="10"/><circle class="rg" cx="400" cy="104" r="10" style="animation-delay:1.3s"/><circle class="rg" cx="400" cy="104" r="10" style="animation-delay:2.6s"/>
+    <circle class="rg burst" cx="400" cy="104" r="10"/><circle class="rg burst" cx="400" cy="104" r="10" style="animation-delay:.18s"/>
+  </g>
+  <g class="main" style="color:var(--tower)">
+    <path d="M354 335L395 70M446 335L405 70M387.3 120H412.7M379.5 170H420.5M371.0 225H429.0M361.8 285H438.2M354.0 335H446.0M395.0 70L412.7 120M405.0 70L387.3 120M387.3 120L420.5 170M412.7 120L379.5 170M379.5 170L429.0 225M420.5 170L371.0 225M371.0 225L438.2 285M429.0 225L361.8 285M361.8 285L446.0 335M438.2 285L354.0 335" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M400 70V46" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    <g fill="currentColor"><rect x="383" y="118" width="34" height="4" rx="1"/><rect x="376" y="168" width="48" height="4" rx="1"/><rect x="360" y="222" width="80" height="4" rx="1"/>
+      <rect x="371" y="98" width="7" height="22" rx="2"/><rect x="422" y="98" width="7" height="22" rx="2"/><rect x="396.5" y="92" width="7" height="28" rx="2"/>
+      <rect x="364" y="146" width="8" height="24" rx="2"/><rect x="428" y="146" width="8" height="24" rx="2"/><rect x="390" y="142" width="20" height="3" rx="1"/>
+      <ellipse cx="372" cy="204" rx="10" ry="6" transform="rotate(-18 372 204)"/><ellipse cx="430" cy="258" rx="9" ry="5.5" transform="rotate(16 430 258)"/></g>
+    <rect x="364" y="332" width="72" height="10" rx="2" fill="currentColor"/>
+    <circle class="bcm" cx="400" cy="42" r="3.4"/>
+  </g>
+  <path d="M-900 352C-600 344-300 358 0 350S500 340 800 352 1300 346 1700 354V700H-900Z" fill="var(--ground)"/>
+</svg>
+</div>
+
 <div class="app" id="app">
   <header class="top">
     <div class="brand">
-      <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect width="48" height="48" rx="13" fill="#0e1a38"/><g stroke="#22d3ee" stroke-width="2.6" stroke-linecap="round"><path d="M24 17 17 38M24 17l7 21M20.5 29h7M18.5 38h11"/><path d="M15.5 12.5a12 12 0 0 0 0 9M32.5 12.5a12 12 0 0 1 0 9" stroke-width="2.2"/></g><circle cx="24" cy="16" r="2.6" fill="#fff"/></svg>
-      <b>Bot <i>Rm</i></b>
+      <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect width="48" height="48" rx="13" fill="var(--mark-bg)"/><g stroke="var(--mark)" stroke-width="2.6" stroke-linecap="round"><path d="M24 17 17 38M24 17l7 21M20.5 29h7M18.5 38h11"/><path d="M15.5 12.5a12 12 0 0 0 0 9M32.5 12.5a12 12 0 0 1 0 9" stroke-width="2.2"/></g><circle cx="24" cy="16" r="2.6" fill="var(--mark)"/></svg>
+      <b>Bot Rm</b>
     </div>
     <button class="btn" id="adminBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>الإدارة</button>
   </header>
@@ -32,10 +74,10 @@
   <main id="main">
     <section class="hero">
       <h1>ابحث برقم الموقع</h1>
-      <p>اكتب رقم الموقع وستظهر لك كل التفاصيل: العنوان، المسؤول، الأرقام، الموقع على الخريطة.</p>
+      <p>اكتب رقم الموقع لتظهر لك تفاصيله فوراً.</p>
       <form class="search" id="form" autocomplete="off" role="search">
         <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
-        <input id="q" type="search" inputmode="search" enterkeyhint="search" placeholder="رقم الموقع  مثال: 113" aria-label="رقم الموقع" autocapitalize="off" autocorrect="off" spellcheck="false" disabled>
+        <input id="q" type="search" inputmode="search" enterkeyhint="search" placeholder="رقم الموقع، مثال 113" aria-label="رقم الموقع" autocapitalize="off" autocorrect="off" spellcheck="false" disabled>
         <button class="clr" id="clr" type="button" hidden aria-label="مسح"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
       </form>
       <div class="meta" id="meta"></div>

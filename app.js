@@ -82,18 +82,31 @@
     timer = setTimeout(() => run(true), 900);
   }
   function currentQuery() { return latin($('#q').value).trim(); }
-  let lastResultCount = 0, lastFound = false;
+  let lastResultCount = 0, lastFound = false, shownId = null;
+  const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (RM) { const sc = document.getElementById('scene'); sc && sc.pauseAnimations && sc.pauseAnimations(); }
+  function ping() {
+    if (RM) return;
+    const sc = document.getElementById('scene'); if (!sc) return;
+    sc.classList.remove('ping'); void sc.getBoundingClientRect(); sc.classList.add('ping');
+    const el = document.querySelector('.id-n'); if (!el) return;
+    const fin = el.textContent; let n = 0;
+    const iv = setInterval(() => {
+      n++; if (n > 9) { el.textContent = fin; clearInterval(iv); return; }
+      el.textContent = fin.replace(/\d/g, () => Math.floor(Math.random() * 10));
+    }, 45);
+  }
   function run(commit) {
     const raw = currentQuery(), out = $('#out');
     document.body.classList.toggle('has-result', !!raw);
     $('#meta').style.display = raw ? 'none' : ''; $('#recent').style.display = raw ? 'none' : '';
-    if (!raw) { out.innerHTML = ''; lastFound = false; history.replaceState(null, '', location.pathname); return; }
+    if (!raw) { out.innerHTML = ''; lastFound = false; shownId = null; history.replaceState(null, '', location.pathname); return; }
     history.replaceState(null, '', '#' + encodeURIComponent(raw));
     if (/^\d+$/.test(raw)) {
       const id = String(parseInt(raw, 10));
       const hit = BY.get(raw) || BY.get(id);
       const sim = ROWS.filter(r => r.id !== (hit && hit.id) && r.id.startsWith(raw)).slice(0, 8);
-      if (hit) { out.innerHTML = card(hit) + simHtml(sim); wire(hit); }
+      if (hit) { out.innerHTML = card(hit) + simHtml(sim); wire(hit); if (shownId !== hit.id) { shownId = hit.id; ping(); } }
       else if (sim.length) { out.innerHTML = `<div class="notfound"><b>لا يوجد موقع بالرقم ${esc(raw)}</b>هل تقصد أحد هذه؟</div>` + simHtml(sim, true); wire(); }
       else out.innerHTML = `<div class="notfound"><b>لا يوجد موقع بالرقم ${esc(raw)}</b>تأكد من الرقم وأعد المحاولة.</div>`;
       lastFound = !!hit; lastResultCount = hit ? 1 : 0;
@@ -147,7 +160,7 @@
     const sevc = r.sev ? r.sev.toLowerCase() : '';
     const hasGeo = r.lat && r.lon;
     const dates = [['تاريخ الإعلان', r.ad], ['إعلان Hybrid', r.ah], ['إعلان Normal', r.an]].filter(x => x[1]).map(x => fld(x[0], dstr(x[1]), false, false)).join('');
-    return `<article class="card">
+    return `<article class="card${sevc ? ' sev-' + sevc : ''}">
       <div class="head"><div><div class="id">رقم الموقع</div><div class="id-n">${esc(r.id)}</div>
         <div class="badges">${r.sev ? `<span class="bd ${sevc}">${esc(r.sev)}</span>` : ''}${r.st ? `<span class="bd">${esc(r.st)}</span>` : ''}${r.ven ? `<span class="bd">${esc(r.ven)}</span>` : ''}${r.gov ? `<span class="bd" style="direction:rtl">${esc(GOV[r.gov] || r.gov)}</span>` : ''}</div></div>
         <div class="acts">${hasGeo ? `<a class="btn pri" href="${mapUrl(r)}" target="_blank" rel="noopener">${IC.map}الخريطة</a>` : ''}<button class="btn" id="shareBtn" type="button">${IC.share}مشاركة</button><button class="btn ghost" id="copyBtn" type="button">${IC.copy}نسخ</button></div></div>
