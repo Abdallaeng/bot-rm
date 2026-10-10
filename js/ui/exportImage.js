@@ -131,13 +131,14 @@ function drawFooter(ctx, y, page, pages, meta) {
 }
 
 /** meta: {title, subtitle, total, sev:{S1,S2,S3}, date, note?}   rows: [{id, nm, sev, govLabel, tech, phone}] */
-export async function renderListImages(meta, rows) {
+export async function renderListImages(meta, rows, opts = {}) {
+  const maxH = opts.maxH || MAX_PAGE_H;
   const assets = await loadAssets();
   const HEAD1 = 330, HEAD_N = 140, FOOT = 84;
   const pages = [];
-  let cur = [], room = MAX_PAGE_H - HEAD1 - FOOT;
+  let cur = [], room = maxH - HEAD1 - FOOT;
   for (const r of rows) {
-    if (room < ROW_H + ROW_GAP) { pages.push(cur); cur = []; room = MAX_PAGE_H - HEAD_N - FOOT; }
+    if (room < ROW_H + ROW_GAP) { pages.push(cur); cur = []; room = maxH - HEAD_N - FOOT; }
     cur.push(r); room -= ROW_H + ROW_GAP;
   }
   if (cur.length) pages.push(cur);
@@ -145,7 +146,7 @@ export async function renderListImages(meta, rows) {
   const blobs = [];
   for (let p = 0; p < pages.length; p++) {
     const head = p === 0 ? HEAD1 : HEAD_N;
-    const H = head + pages[p].length * (ROW_H + ROW_GAP) + FOOT + (meta.note && p === pages.length - 1 ? 50 : 0);
+    const H = opts.fixedH ? maxH : head + pages[p].length * (ROW_H + ROW_GAP) + FOOT + (meta.note && p === pages.length - 1 ? 50 : 0);
     const cv = document.createElement('canvas');
     cv.width = W; cv.height = H;
     const ctx = cv.getContext('2d');
@@ -154,8 +155,8 @@ export async function renderListImages(meta, rows) {
     pages[p].forEach((r, i) => drawRow(ctx, r, head + i * (ROW_H + ROW_GAP)));
     let fy = head + pages[p].length * (ROW_H + ROW_GAP);
     if (meta.note && p === pages.length - 1) { text(ctx, meta.note, W / 2, fy + 28, { size: 22, weight: 500, color: C.mut, align: 'center' }); fy += 50; }
-    drawFooter(ctx, fy, p + 1, pages.length, meta);
-    blobs.push(await new Promise((res) => cv.toBlob(res, 'image/png')));
+    drawFooter(ctx, opts.fixedH ? H - FOOT : fy, p + 1, pages.length, meta);
+    blobs.push(await new Promise((res) => (opts.jpeg ? cv.toBlob(res, 'image/jpeg', 0.72) : cv.toBlob(res, 'image/png'))));
   }
   return blobs;
 }
@@ -177,4 +178,34 @@ export function downloadImages(blobs, name) {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   });
+}
+
+/** يبني ملف PDF من صور JPEG (كل صورة = صفحة). يعيد Blob. */
+export async function imagesToPdf(jpegBlobs, pageW = 595) {
+  const enc = new TextEncoder(); const parts = []; const offs = []; let len = 0;
+  const push = (d) => { const u = typeof d === 'string' ? enc.encode(d) : d; parts.push(u); len += u.length; };
+  const obj = (n, body) => { offs[n] = len; push(`${n} 0 obj\n`); push(body); push('\nendobj\n'); };
+  const imgs = [];
+  for (const b of jpegBlobs) {
+    const bmp = await createImageBitmap(b);
+    imgs.push({ w: bmp.width, h: bmp.height, data: new Uint8Array(await b.arrayBuffer()) });
+    bmp.close?.();
+  }
+  const n = imgs.length;
+  push('%PDF-1.4\n');
+  obj(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  obj(2, `<< /Type /Pages /Count ${n} /Kids [${imgs.map((_, i) => `${3 + i * 3} 0 R`).join(' ')}] >>`);
+  imgs.forEach((im, i) => {
+    const pg = 3 + i * 3, ct = pg + 1, xo = pg + 2, ph = +(pageW * im.h / im.w).toFixed(2);
+    obj(pg, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${ph}] /Resources << /XObject << /Im0 ${xo} 0 R >> >> /Contents ${ct} 0 R >>`);
+    const c = `q ${pageW} 0 0 ${ph} 0 0 cm /Im0 Do Q`;
+    obj(ct, `<< /Length ${c.length} >>\nstream\n${c}\nendstream`);
+    offs[xo] = len; push(`${xo} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.data.length} >>\nstream\n`);
+    push(im.data); push('\nendstream\nendobj\n');
+  });
+  const total = 3 + n * 3, xref = len;
+  push(`xref\n0 ${total}\n0000000000 65535 f \n`);
+  for (let i = 1; i < total; i++) push(`${String(offs[i]).padStart(10, '0')} 00000 n \n`);
+  push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  return new Blob(parts, { type: 'application/pdf' });
 }
