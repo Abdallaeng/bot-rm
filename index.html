@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Bot Rm — البحث برقم الموقع</title>
+<meta name="description" content="ابحث برقم الموقع واحصل على كل التفاصيل فوراً">
+<meta name="theme-color" content="#0a1020">
+<meta name="robots" content="noindex,nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bot Rm">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><rect width="48" height="48" rx="13" fill="#0e1a38"/><g stroke="#22d3ee" stroke-width="2.6" stroke-linecap="round"><path d="M24 17 17 38M24 17l7 21M20.5 29h7M18.5 38h11"/><path d="M15.5 12.5a12 12 0 0 0 0 9M32.5 12.5a12 12 0 0 1 0 9" stroke-width="2.2"/></g><circle cx="24" cy="16" r="2.6" fill="#fff"/></svg>
+      <b>Bot <i>Rm</i></b>
+    </div>
+    <button class="btn" id="adminBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>الإدارة</button>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <h1>ابحث برقم الموقع</h1>
+      <p>اكتب رقم الموقع وستظهر لك كل التفاصيل: العنوان، المسؤول، الأرقام، الموقع على الخريطة.</p>
+      <form class="search" id="form" autocomplete="off" role="search">
+        <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+        <input id="q" type="search" inputmode="search" enterkeyhint="search" placeholder="رقم الموقع  مثال: 113" aria-label="رقم الموقع" autocapitalize="off" autocorrect="off" spellcheck="false" disabled>
+        <button class="clr" id="clr" type="button" hidden aria-label="مسح"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </form>
+      <div class="meta" id="meta"></div>
+      <div class="recent" id="recent"></div>
+    </section>
+    <section id="out" aria-live="polite"></section>
+  </main>
+  <div class="foot" id="foot"></div>
+</div>
+<div class="toast" id="toast"></div>
+<dialog id="dlg"></dialog>
+<script src="config.js"></script>
+<script src="core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
