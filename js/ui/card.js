@@ -38,6 +38,14 @@ function phoneBlock(value) {
   return `<div class="phones">${rows.join('')}</div>`;
 }
 
+/** كل أرقام الاتصال معاً تحت اسم الفني: رقم الفني ثم الفاتورة ثم صاحب الموقع */
+function contactsBlock(r) {
+  const entries = [[null, r.mp], ['رقم الفاتورة', r.inv], ['رقم صاحب الموقع', r.own]]
+    .filter(([, v]) => splitPhones(v).some(isPhone));
+  if (!entries.length) return '';
+  return `<div class="contacts">${entries.map(([label, v]) => `<div class="ct">${label ? `<small>${label}</small>` : ''}${phoneBlock(v)}</div>`).join('')}</div>`;
+}
+
 /* ---------- مكوّنات ---------- */
 const mapUrl = (r) => `https://www.google.com/maps?q=${r.lat},${r.lon}`;
 const NONE = '<b class="k-none">غير محدد في الملف</b>';
@@ -69,8 +77,6 @@ export function renderCard(r) {
       field('التصنيف', r.t2, { en: true }) + field('المواقع المرتبطة', r.as != null ? r.as : '') +
       (hasGeo ? field('الإحداثيات', `<span class="en">${r.lat}, ${r.lon}</span>`, { full: true, raw: true }) : '')),
     section('الفريق', field('المقاول الفرعي', r.sub, { en: true }) + field('المورّد', r.ven, { en: true })),
-    section('جهات اتصال أخرى',
-      (r.inv ? field('رقم الفاتورة', phoneBlock(r.inv), { raw: true }) : '') + (r.own ? field('رقم صاحب الموقع', phoneBlock(r.own), { raw: true }) : '')),
     section('الإعلان',
       [['تاريخ الإعلان', r.ad], ['إعلان Hybrid', r.ah], ['إعلان Normal', r.an]].filter(([, v]) => v).map(([l, v]) => field(l, formatIsoDate(v))).join('')),
     section('ملاحظات', r.cm ? field('', r.cm, { full: true }) : ''),
@@ -88,7 +94,7 @@ export function renderCard(r) {
     <div class="key">
       ${tile(`k-cl${r.cl ? '' : ' none'}`, ICON.cluster, 'الكلستر', r.cl ? `<b>${esc(r.cl)}</b>` : NONE)}
       ${tile('k-gov', ICON.map, 'المحافظة', `<b>${esc(govName(r.gov) || '—')}</b>`)}
-      ${tile('k-tech', ICON.tech, 'الفني', r.mn ? `<b>${esc(r.mn)}</b>` : NONE, r.mp ? phoneBlock(r.mp) : '')}
+      ${tile('k-tech', ICON.tech, 'الفني', r.mn ? `<b>${esc(r.mn)}</b>` : NONE, contactsBlock(r))}
       ${tile('k-addr', ICON.address, 'العنوان', r.nm ? `<b>${esc(r.nm)}</b>` : NONE)}
     </div>
     ${details ? `<details class="more"><summary>تفاصيل إضافية</summary>${details}</details>` : ''}

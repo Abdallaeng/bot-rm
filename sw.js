@@ -1,11 +1,15 @@
-/* Service worker: الشبكة أولاً (يصل التحديث فوراً) مع كاش احتياطي للعمل دون اتصال */
-const VERSION = 'botrm-v6';
+/* Service worker — يعمل دون إنترنت:
+   · ملفات الموقع والبيانات: الشبكة أولاً (مهلة قصيرة) ثم النسخة المحفوظة
+   · الخطوط: من الكاش فوراً وتُحدَّث في الخلفية */
+const VERSION = 'botrm-v7';
+const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+const NETWORK_TIMEOUT = 3000;
 const SHELL = [
-  './', 'index.html', 'config.js', 'core.js', 'manifest.webmanifest',
+  './', 'index.html', 'config.js', 'core.js', 'manifest.webmanifest', 'data.json',
   'css/tokens.css', 'css/base.css', 'css/scene.css', 'css/search.css', 'css/card.css', 'css/admin.css',
   'js/main.js', 'js/lib/dom.js', 'js/lib/storage.js', 'js/lib/text.js', 'js/lib/labels.js',
-  'js/data/store.js', 'js/data/analytics.js', 'js/ui/card.js', 'js/ui/effects.js', 'js/ui/home.js', 'js/ui/search.js',
-  'icons/icon-192.png', 'icons/icon-512.png', 'icons/seal.png', 'data.json',
+  'js/data/store.js', 'js/data/analytics.js', 'js/ui/card.js', 'js/ui/effects.js', 'js/ui/home.js', 'js/ui/search.js', 'js/ui/admin.js',
+  'icons/icon-192.png', 'icons/icon-512.png', 'icons/seal.png', 'icons/favicon.png',
 ];
 
 self.addEventListener('install', (e) => {
@@ -20,14 +24,36 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+const cacheable = (res) => res && (res.ok || res.type === 'opaque');
+
+async function networkFirst(req) {
+  const cache = await caches.open(VERSION);
+  try {
+    const res = await Promise.race([
+      fetch(req, { cache: 'no-cache' }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), NETWORK_TIMEOUT)),
+    ]);
+    if (cacheable(res)) cache.put(req, res.clone());
+    return res;
+  } catch {
+    return (await cache.match(req, { ignoreSearch: true }))
+      || (req.mode === 'navigate' ? await cache.match('index.html') : undefined)
+      || Response.error();
+  }
+}
+
+async function staleWhileRevalidate(req) {
+  const cache = await caches.open(VERSION);
+  const cached = await cache.match(req);
+  const update = fetch(req).then((res) => { if (cacheable(res)) cache.put(req, res.clone()); return res; }).catch(() => cached);
+  return cached || update;
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  if (url.origin !== location.origin) return;           // العدّاد وGitHub والخطوط: لا نتدخل
-  e.respondWith(
-    fetch(req, { cache: 'no-cache' })
-      .then((res) => { if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); } return res; })
-      .catch(() => caches.match(req, { ignoreSearch: true })),
-  );
+  if (FONT_HOSTS.includes(url.hostname)) { e.respondWith(staleWhileRevalidate(req)); return; }
+  if (url.origin !== location.origin) return;           // العدّاد وGitHub: لا نتدخل
+  e.respondWith(networkFirst(req));
 });

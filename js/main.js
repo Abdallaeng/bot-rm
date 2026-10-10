@@ -1,5 +1,5 @@
 /** نقطة الدخول: تحميل البيانات ثم تشغيل الواجهة */
-import { $, esc } from './lib/dom.js';
+import { $, esc, toast } from './lib/dom.js';
 import { state, fetchPacket, unlockPacket, setRows } from './data/store.js';
 import { flushPending } from './data/analytics.js';
 import { initSearch } from './ui/search.js';
@@ -35,9 +35,12 @@ async function boot() {
   renderStats();
   renderFooter();
   initSearch();
+  if (!navigator.onLine) toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة');
   document.addEventListener('botrm:data', renderStats);   // بعد نشر تحديث من لوحة الإدارة
 }
 
+window.addEventListener('offline', () => toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة'));
+window.addEventListener('online', () => { toast('عاد الاتصال'); flushPending(); });
 $('#adminBtn').addEventListener('click', async () => (await import('./ui/admin.js')).openAdmin());
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 boot();
