@@ -1,2 +1,6 @@
 data.json.plain.json
 node_modules/
+android/release.jks
+android/build/
+android/app/build/
+android/.gradle/

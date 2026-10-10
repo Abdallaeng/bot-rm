@@ -1,0 +1,35 @@
+name: Android APK
+on:
+  workflow_dispatch:
+  push:
+    paths: ['android/**', '.github/workflows/android.yml']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.7' }
+      - name: Create signing key
+        run: |
+          KS_PASS=$(openssl rand -hex 16)
+          echo "KS_PASS=$KS_PASS" >> "$GITHUB_ENV"
+          keytool -genkeypair -v -keystore android/release.jks -alias botrm -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass "$KS_PASS" -keypass "$KS_PASS" -dname "CN=Bot Rm, O=Rabooa Al-Maali, C=IQ"
+      - name: Build
+        working-directory: android
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+        run: gradle assembleRelease --no-daemon
+      - name: Publish release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk Bot-Rm.apk
+          gh release view apk-latest >/dev/null 2>&1 || gh release create apk-latest --title "Bot Rm (Android)" --notes "أحدث نسخة من تطبيق أندرويد"
+          gh release upload apk-latest Bot-Rm.apk --clobber

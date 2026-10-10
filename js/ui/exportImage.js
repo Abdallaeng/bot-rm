@@ -162,7 +162,16 @@ export async function renderListImages(meta, rows, opts = {}) {
 }
 
 /** مشاركة عبر قائمة المشاركة (واتساب وغيره)؛ يعيد false إن لم تدعمها الأداة */
+/** داخل تطبيق أندرويد (APK): المشاركة عبر الجسر لأن WebView لا يدعم Web Share بالملفات */
+export const inApp = () => Boolean(window.BotRmApp?.shareFiles);
+const toB64 = (blob) => new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(blob); });
+export async function shareViaApp(files, text = '') {
+  const list = await Promise.all(files.map(async (f) => ({ b64: await toB64(f.blob), name: f.name, mime: f.blob.type || 'application/octet-stream' })));
+  window.BotRmApp.shareFiles(JSON.stringify(list), text);
+}
+
 export async function shareImages(blobs, name, text) {
+  if (inApp()) { await shareViaApp(blobs.map((b, i) => ({ blob: b, name: `${name}${blobs.length > 1 ? `-${i + 1}` : ''}.png` })), text); return true; }
   const files = blobs.map((b, i) => new File([b], `${name}${blobs.length > 1 ? `-${i + 1}` : ''}.png`, { type: 'image/png' }));
   if (navigator.canShare?.({ files })) {
     try { await navigator.share({ files, title: name, text }); return true; }
@@ -172,6 +181,7 @@ export async function shareImages(blobs, name, text) {
 }
 
 export function downloadImages(blobs, name) {
+  if (inApp()) { shareViaApp(blobs.map((b, i) => ({ blob: b, name: `${name}${blobs.length > 1 ? `-${i + 1}` : ''}.png` }))); return; }
   blobs.forEach((b, i) => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(b); a.download = `${name}${blobs.length > 1 ? `-${i + 1}` : ''}.png`;

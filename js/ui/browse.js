@@ -129,13 +129,14 @@ function previewPdf(ex, file, text, n) {
   m.innerHTML = `<div class="pvbox"><div class="pvdoc"><b>📄 ${esc(file.name)}</b><span>${n} صفحة · ${(file.size / 1048576).toFixed(1)} MB</span></div>
     <div class="pvbar"><button class="btn wa" data-a="share">مشاركة</button><button class="btn" data-a="save">حفظ PDF</button><button class="btn" data-a="x">إغلاق</button></div></div>`;
   const done = () => { URL.revokeObjectURL(url); m.remove(); };
-  const save = () => { const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); };
+  const save = () => { if (ex.inApp()) { ex.shareViaApp([{ blob: file, name: file.name }], text); return; } const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); };
   m.onclick = async (e) => {
     const a = e.target.closest('[data-a]')?.dataset.a;
     if (e.target === m || a === 'x') return done();
     if (a === 'save') save();
     if (a === 'share') {
-      if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: file.name, text }); } catch { /* cancelled */ } }
+      if (ex.inApp()) ex.shareViaApp([{ blob: file, name: file.name }], text);
+      else if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: file.name, text }); } catch { /* cancelled */ } }
       else { save(); alert('المشاركة المباشرة غير مدعومة هنا — تم حفظ الملف.'); }
     }
   };
