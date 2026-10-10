@@ -25,3 +25,16 @@ Framework: None، Build command: فارغ، Output directory: `/` ← Save and D
 أو «تنزيل data.json» واستبدل الملف في المستودع يدوياً.
 
 ملاحظة: الموقع مفتوح للعامة، فأي شخص يستطيع قراءة `data.json`. لحمايته ضع رمز فريق عند رفع التحديث (تشفير AES-256).
+
+## هيكل الكود
+
+```
+index.html            الهيكل + مشهد الأبراج (SVG)
+config.js / core.js   الإعدادات + قراءة الإكسل والتشفير (مشترك مع سكربت البناء)
+css/                  tokens (الألوان) · base · scene · search · card · admin
+js/main.js            نقطة الدخول
+js/lib/               dom · storage · text · labels  (أدوات صغيرة)
+js/data/              store (تحميل/فهرسة) · analytics (العدّاد)
+js/ui/                search · card · home · effects · admin (يُحمَّل عند الطلب)
+sw.js                 الخدمة للعمل دون اتصال (الشبكة أولاً)
+```
