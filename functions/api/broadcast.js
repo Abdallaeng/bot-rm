@@ -1,20 +1,23 @@
 /** GET  /api/broadcast  — الإعلان الحالي للجميع (أو null)
  *  POST /api/broadcast  — للإدارة: { action:'set', text, level:'info|warn|alert', hours? } أو { action:'clear' } */
-import { authed, json } from '../_shared.js';
+import { authed, json, edgeCached, purgeEdge, forget } from '../_shared.js';
 
+const PURGE = ['/__bcast', '/__sync'];
 const LEVELS = ['info', 'warn', 'alert'];
 
-export async function onRequestGet({ env }) {
+export async function onRequestGet(ctx) {
+  const { env } = ctx;
   if (!env.DATA) return json({ b: null });
-  return json({ b: await env.DATA.get('broadcast', 'json') });
+  return edgeCached(ctx, '/__bcast', 60, async () => json({ b: await env.DATA.get('broadcast', 'json') }));
 }
 
 export async function onRequestPost({ request, env }) {
   if (!env.DATA) return json({ error: 'not-configured' }, 501);
   if (!(await authed(request, env))) return json({ error: 'unauthorized' }, 401);
+  forget('broadcast');
   let body; try { body = await request.json(); } catch { return json({ error: 'bad-json' }, 400); }
 
-  if (body.action === 'clear') { await env.DATA.delete('broadcast'); return json({ ok: true }); }
+  if (body.action === 'clear') { await env.DATA.delete('broadcast'); await purgeEdge(request, PURGE); return json({ ok: true }); }
   const text = String(body.text || '').trim().slice(0, 400);
   if (!text) return json({ error: 'empty' }, 400);
   const level = LEVELS.includes(body.level) ? body.level : 'info';
@@ -24,6 +27,7 @@ export async function onRequestPost({ request, env }) {
   const hist = ((await env.DATA.get('bhist', 'json')) || []);
   hist.unshift(b);
   await env.DATA.put('bhist', JSON.stringify(hist.slice(0, 15)));
+  await purgeEdge(request, PURGE);
   return json({ ok: true, b });
 }
 

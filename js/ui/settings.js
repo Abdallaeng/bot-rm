@@ -29,6 +29,7 @@ function open() {
     <div class="swatches">${ACCENTS.map(([k, label, c]) => `<button type="button" class="sw${k === accent ? ' on' : ''}" data-acc="${k}" aria-label="${label}" title="${label}" style="--c:${c ? c[0] : '#157a94'}"></button>`).join('')}</div>
     <div class="h4">حجم الخط</div>
     <div class="seg szs">${SIZES.map(([v, l]) => `<button type="button" data-z="${v}" class="${v === zoom ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <button class="btn" data-a="sync" type="button" style="width:100%;margin-top:10px">تحقق من التحديثات الآن</button>
     <div class="pvbar" style="grid-template-columns:1fr 1fr;margin-top:6px"><button class="btn" data-a="reset" type="button">استعادة الافتراضي</button><button class="btn pri" data-a="x" type="button">تم</button></div></div>`;
   const refresh = () => {
     m.querySelectorAll('[data-acc]').forEach((b) => b.classList.toggle('on', b.dataset.acc === LS.get('brm_accent', 'teal')));
@@ -40,6 +41,7 @@ function open() {
     if (a) LS.set('brm_accent', a.dataset.acc);
     if (z) LS.set('brm_zoom', z.dataset.z);
     if (act === 'x') return m.remove();
+    if (act === 'sync') { document.dispatchEvent(new CustomEvent('botrm:sync')); e.target.textContent = 'جارٍ التحقق…'; setTimeout(() => { e.target.textContent = 'تم التحقق ✓'; }, 900); return; }
     if (act === 'reset') { LS.set('brm_accent', 'teal'); LS.set('brm_zoom', '1'); }
     applyPrefs(); refresh();
   };

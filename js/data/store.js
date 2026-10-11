@@ -2,6 +2,7 @@
 import { LS } from '../lib/storage.js';
 import { normalizeArabic } from '../lib/text.js';
 import { govName } from '../lib/labels.js';
+import { idbGet, idbSet } from './idb.js';
 
 export const CFG = window.BOTRM;
 const Core = window.BotCore;
@@ -11,7 +12,7 @@ export const state = { rows: [], byId: new Map(), meta: {}, code: LS.get('brm_co
 const inIraq = (lon, lat) => lon > 38 && lon < 49.5 && lat > 28.5 && lat < 37.5;
 
 /** بعض الصفوف في الملف فيها خط الطول والعرض مقلوبان — نصحّحها عند التحميل */
-function fixSwappedCoords(row) {
+export function fixSwappedCoords(row) {
   const lon = +row.lon, lat = +row.lat;
   if (lon && lat && !inIraq(lon, lat) && inIraq(lat, lon)) { row.lon = lat; row.lat = lon; }
 }
@@ -28,11 +29,17 @@ export function setRows(rows, meta = {}) {
   }
 }
 
-/** fresh=false: من الكاش فوراً (السريع)؛ fresh=true: من الشبكة للتحقق من وجود تحديث */
+/** الحزمة المحفوظة محلياً (IndexedDB) — أسرع مصدر ولا تحتاج شبكة إطلاقاً */
+export const storedPacket = () => idbGet('packet');
+export const savePacket = (packet) => idbSet('packet', packet);
+
+/** fresh=false: من الكاش المحلي؛ fresh=true: من الشبكة (بعد أن يخبرنا /api/sync بوجود إصدار أحدث) */
 export async function fetchPacket(fresh = false) {
   const res = await fetch(fresh ? `${CFG.dataFile}?fresh=1` : CFG.dataFile);
   if (!res.ok) throw new Error(`data ${res.status}`);
-  return res.json();
+  const packet = await res.json();
+  savePacket(packet);
+  return packet;
 }
 
 /** يجرّب الرمز المحفوظ ثم الرمز الفارغ (الموقع المفتوح). يعيد الصفوف أو null إن لزم رمز. */

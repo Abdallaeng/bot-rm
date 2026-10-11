@@ -1,5 +1,6 @@
 /** تتبّع الاستخدام: سجل محلي + إرسال دفعات إلى /api/track (تخزين KV في الاستضافة).
- *  الأحداث تُجمَّع في طابور محلي وتُرسل كل دقيقتين أو عند إغلاق الصفحة، وتبقى محفوظة عند انقطاع الشبكة. */
+ *  توفيراً لحصة الكتابة في KV: الأحداث تُجمَّع في طابور محلي (يبقى محفوظاً) ولا تُرسل إلا عند
+ *  (أ) تجمّع 25 حدثاً، أو (ب) مرور 15 دقيقة على أقدم حدث غير مرسل، فيصل كل ذلك بكتابة واحدة. */
 import { LS } from '../lib/storage.js';
 
 export const ymd = (d = new Date()) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
@@ -10,6 +11,7 @@ const device = () => {
   return id;
 };
 
+const BATCH = 25, MAX_AGE = 15 * 60e3;
 let lastTracked = '', timer = 0;
 export function track(query, found, gov = '') {
   const sig = `${query}|${found}`;
@@ -22,20 +24,24 @@ export function track(query, found, gov = '') {
   const q = LS.get('brm_evq', []);
   q.push([now, query, found ? 1 : 0, gov]);
   LS.set('brm_evq', q.slice(-300));
-  clearTimeout(timer); timer = setTimeout(flushPending, 60_000);
+  if (q.length >= BATCH) flushPending(true);
+  else if (!timer) timer = setTimeout(() => { timer = 0; flushPending(); }, MAX_AGE);
   document.dispatchEvent(new CustomEvent('botrm:log'));
 }
 
 let sending = false;
-export async function flushPending() {
+export async function flushPending(force = false) {
   const q = LS.get('brm_evq', []);
   if (!q.length || sending || !navigator.onLine) return;
-  if (Date.now() < LS.get('brm_notrack', 0)) return;     // الخادم غير مفعّل: لا نكرر المحاولة كثيراً
+  const now = Date.now();
+  if (now < LS.get('brm_notrack', 0)) return;            // الخادم غير مفعّل أو طلب منّا الانتظار
+  if (!force && q.length < BATCH && now - q[0][0] < MAX_AGE) return;   // لم يحن موعد الإرسال بعد
   sending = true;
   const batch = q.slice(0, 50);
   try {
     const res = await fetch('/api/track', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ d: device(), e: batch }), keepalive: true });
     if (res.status === 501 || res.status === 404) LS.set('brm_notrack', Date.now() + 3600_000);
+    else if (res.status === 429) { const j = await res.json().catch(() => ({})); LS.set('brm_notrack', Date.now() + (Math.min(+j.retry || 240, 900) + 5) * 1000); }
     else if (res.ok) {
       const rest = LS.get('brm_evq', []).filter((x) => !batch.some((b) => b[0] === x[0] && b[1] === x[1]));
       LS.set('brm_evq', rest);
@@ -45,6 +51,7 @@ export async function flushPending() {
   sending = false;
 }
 
+/* عند إخفاء التطبيق نرسل فقط ما استحق الإرسال (قاعدة flushPending)، والباقي يبقى في الطابور ويُرسل لاحقاً أو عند الفتح القادم */
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPending(); });
 
 /** آخر المواقع التي بحث عنها هذا الجهاز (بدون تكرار) */

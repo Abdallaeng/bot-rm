@@ -29,3 +29,24 @@ export function countUp(root = document) {
   };
   requestAnimationFrame(step);
 }
+
+/** يحرّك رقماً داخل عنصر من قيمته الحالية إلى قيمة جديدة (يُستعمل لملخصات تتغيّر عند التصفية) */
+export function tween(el, to, ms = 420) {
+  const fmt = (n) => Math.round(n).toLocaleString('en');
+  const from = Number(el.dataset.n ?? NaN);
+  el.dataset.n = to;
+  if (prefersReducedMotion() || !Number.isFinite(from) || from === to) { el.textContent = fmt(to); return; }
+  const t0 = performance.now();
+  const step = (now) => {
+    const p = Math.min(1, (now - t0) / ms);
+    el.textContent = fmt(from + (to - from) * (1 - (1 - p) ** 3));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/** انتقال سلس عند تبديل المحتوى (View Transitions حيث يدعمها المتصفح، وإلا تحديث فوري) */
+export function transition(update) {
+  if (!document.startViewTransition || prefersReducedMotion() || document.visibilityState !== 'visible') return update();
+  try { document.startViewTransition(update); } catch { update(); }
+}

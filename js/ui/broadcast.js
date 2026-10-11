@@ -1,4 +1,4 @@
-/** شريط الإعلانات (بث من الإدارة لكل المستخدمين). يُحدَّث عند فتح التطبيق وكل 5 دقائق ويُحفظ للعرض دون إنترنت. */
+/** شريط الإعلانات (بث من الإدارة لكل المستخدمين). يصل مع المزامنة الخفيفة (مرة كل 5 دقائق كحد أدنى) ويُحفظ للعرض دون إنترنت. */
 import { $ } from '../lib/dom.js';
 import { LS } from '../lib/storage.js';
 
@@ -18,19 +18,12 @@ function show(b) {
   document.body.prepend(el);
 }
 
-async function poll() {
-  try {
-    const res = await fetch('/api/broadcast', { cache: 'no-store' });
-    if (!res.ok) return;
-    const { b } = await res.json();
-    LS.set('brm_bc', b || null);
-    show(b);
-  } catch { show(LS.get('brm_bc', null)); }
+/** يُستدعى من المزامنة الخفيفة (/api/sync) بالإعلان الحالي — لا طلب منفصل للإعلانات */
+export function applyBroadcast(b) {
+  LS.set('brm_bc', b || null);
+  show(b);
 }
 
 export function initBroadcast() {
-  show(LS.get('brm_bc', null));
-  poll();
-  setInterval(poll, 300_000);
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') poll(); });
+  show(LS.get('brm_bc', null));          // المحفوظ محلياً يظهر فوراً حتى دون إنترنت
 }

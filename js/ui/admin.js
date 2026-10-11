@@ -2,11 +2,14 @@
 import { $, esc, toast } from '../lib/dom.js';
 import { LS } from '../lib/storage.js';
 import { govName } from '../lib/labels.js';
-import { CFG, state, setRows } from '../data/store.js';
+import { CFG, state, setRows, fixSwappedCoords } from '../data/store.js';
 import { ymd } from '../data/analytics.js';
 import { tabBroadcast, tabAlerts, tabSecurity } from './adminExtra.js';
 import { FIELD_LABELS } from './fields.js';
+import { applyHistory, editHistory } from '../data/history.js';
 import { ICONS } from '../lib/icons.js';
+import { emptyState } from '../lib/art.js';
+import { countUp } from './effects.js';
 
 const Core = window.BotCore;
 
@@ -57,7 +60,16 @@ function showTab() {
 
 /* ----- التقارير ----- */
 const fmtDay = (k) => `${k.slice(6)}/${k.slice(4, 6)}`;
-const bars = (rows, max, ltr) => rows.map(([name, n]) => `<div class="bar"><span${ltr ? ' class="en" style="direction:ltr;text-align:start"' : ''}>${esc(name)}</span><i style="width:${Math.round(n / max * 100)}%"></i><em>${n}</em></div>`).join('');
+/** خط مصغّر (Sparkline) لسلسلة أرقام: يُظهر اتجاه الطلب عبر الأيام */
+const spark = (vals) => {
+  if (!vals || vals.length < 2 || !vals.some((v) => v)) return '';
+  const W = 64, H = 20, mx = Math.max(...vals), step = W / (vals.length - 1);
+  const pts = vals.map((v, i) => `${(i * step).toFixed(1)},${(H - 2 - (v / mx) * (H - 5)).toFixed(1)}`);
+  const last = pts.at(-1).split(',');
+  return `<svg class="spk" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${last[0]}" cy="${last[1]}" r="2.2" fill="currentColor"/></svg>`;
+};
+/** rows: [اسم_العرض, العدد, مفتاح_السلسلة?] · series(key) تعيد قيم كل يوم */
+const bars = (rows, max, ltr, series) => rows.map(([name, n, key]) => `<div class="bar${series ? ' sp' : ''}"><span${ltr ? ' class="en" style="direction:ltr;text-align:start"' : ''}>${esc(name)}</span><i style="width:${Math.round(n / max * 100)}%"></i><em>${n}</em>${series ? spark(series(key ?? name)) : ''}</div>`).join('');
 const merge = (lists) => { const m = {}; lists.forEach((l) => (l || []).forEach(([k, n]) => { m[k] = (m[k] || 0) + n; })); return Object.entries(m).sort((a, b) => b[1] - a[1]); };
 
 async function loadStats(range) {
@@ -106,7 +118,8 @@ async function tabReports(el) {
   const top = st ? merge(days.map((d) => d.top)).slice(0, 10) : Object.entries(localLog.reduce((a, l) => { if (l[2]) a[l[1]] = (a[l[1]] || 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const miss = st ? merge(days.map((d) => d.miss)).slice(0, 10) : [];
   const recent = st ? st.recent.slice(0, 15) : localLog.slice().reverse().slice(0, 15).map((l) => [l[0], l[1], l[2], 'هذا']);
-  const govDemand = st ? merge(days.map((d) => d.gov)).map(([g, n]) => [govName(g) || g, n]).slice(0, 8) : [];
+  const govDemand = st ? merge(days.map((d) => d.gov)).map(([g, n]) => [govName(g) || g, n, g]).slice(0, 8) : [];
+  const seriesOf = (field) => (key) => days.map((d) => (d[field] || []).find(([k]) => k === key)?.[1] || 0);
   const gv = {}; state.rows.forEach((r) => { const g = govName(r.gov) || 'غير محدد'; gv[g] = (gv[g] || 0) + 1; });
   const gvl = Object.entries(gv).sort((a, b) => b[1] - a[1]);
   const delta = y.s ? Math.round((today.s - y.s) / y.s * 100) : 0;
@@ -120,20 +133,22 @@ async function tabReports(el) {
     <div class="rbar"><div class="seg">${[7, 14, 30].map((n) => `<button type="button" data-r="${n}" class="${n === range ? 'on' : ''}">${n} يوم</button>`).join('')}</div><span style="flex:1"></span><button class="btn" id="rfr" type="button">${ICONS.refresh}تحديث</button><button class="btn" id="rcsv" type="button">${ICONS.download}CSV</button></div>
     <div class="kpis"><div class="kpi acc"><small>بحث اليوم</small><b>${today.s}</b>${y.s ? `<em class="${delta >= 0 ? 'up' : 'dn'}">${delta >= 0 ? '▲' : '▼'} ${Math.abs(delta)}% عن أمس</em>` : ''}</div>
       <div class="kpi"><small>أمس</small><b>${y.s}</b></div><div class="kpi"><small>آخر 7 أيام</small><b>${sum(7)}</b></div><div class="kpi"><small>آخر ${range} يوم</small><b>${sum(range)}</b></div>
-      ${st ? `<div class="kpi"><small>أجهزة فريدة اليوم</small><b>${today.u}</b></div>` : ''}
+      ${st ? `<div class="kpi"><small>أجهزة فريدة اليوم</small><b>${today.u}</b></div><div class="kpi" title="عدد مرات الكتابة في KV بسبب التتبّع اليوم (الحد المجاني ≈ 1000 يومياً)"><small>كتابات KV اليوم</small><b>${today.w || 0}</b></div>` : ''}
       <div class="kpi bad"><small>بدون نتيجة (${range} يوم)</small><b>${sum(range, 'm')}</b><em>${rate(sum(range, 'm'), sum(range)) }% نجاح</em></div></div>
     <div class="h4">عدد عمليات البحث يومياً <span class="lg"><i></i>غير موجود</span></div>
     <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="عدد عمليات البحث اليومية">${chart}</svg></div>
     ${st ? `<div class="h4">ساعات الذروة (بتوقيت بغداد) ${hours[peak] ? `— الأعلى ${peak}:00` : ''}</div><div class="hrs">${hrs}</div><div class="hlab"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>` : ''}
     ${st ? heatmap(days) : ''}
-    ${govDemand.length ? `<div class="h4">المحافظات الأكثر طلباً (من مواقع وُجدت)</div>${bars(govDemand, govDemand[0][1])}` : ''}
-    ${top.length ? `<div class="h4">الأكثر بحثاً ${st ? '(كل المستخدمين)' : '(هذا الجهاز)'}</div>${bars(top, top[0][1], true)}` : ''}
-    ${miss.length ? `<div class="h4">بحث بلا نتيجة — مواقع مطلوبة وغير موجودة</div>${bars(miss, miss[0][1], true)}` : ''}
+    ${govDemand.length ? `<div class="h4">المحافظات الأكثر طلباً (من مواقع وُجدت)</div>${bars(govDemand, govDemand[0][1], false, st && days.length > 2 ? seriesOf('gov') : null)}` : ''}
+    ${top.length ? `<div class="h4">الأكثر بحثاً ${st ? '(كل المستخدمين)' : '(هذا الجهاز)'}</div>${bars(top, top[0][1], true, st && days.length > 2 ? seriesOf('top') : null)}` : ''}
+    ${miss.length ? `<div class="h4">بحث بلا نتيجة — مواقع مطلوبة وغير موجودة</div>${bars(miss, miss[0][1], true, st && days.length > 2 ? seriesOf('miss') : null)}` : ''}
     <div class="h4">توزيع المواقع حسب المحافظة</div>${bars(gvl, gvl[0]?.[1] || 1)}
     <div class="h4">آخر عمليات البحث ${st ? '(كل الأجهزة)' : '(هذا الجهاز)'}</div>
-    ${recent.length ? `<table class="tbl"><tr><th>الوقت</th><th>البحث</th><th>الجهاز</th><th>النتيجة</th></tr>${recent.map((l) => `<tr><td>${new Date(l[0]).toLocaleString('en-GB', { hour12: false, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td><td style="direction:ltr;text-align:start">${esc(l[1])}</td><td class="en muted">${esc(l[3] || '')}</td><td>${l[2] ? '✅' : '❌'}</td></tr>`).join('')}</table>` : '<div class="muted">لا توجد عمليات بعد.</div>'}
+    ${recent.length ? `<table class="tbl"><tr><th>الوقت</th><th>البحث</th><th>الجهاز</th><th>النتيجة</th></tr>${recent.map((l) => `<tr><td>${new Date(l[0]).toLocaleString('en-GB', { hour12: false, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td><td style="direction:ltr;text-align:start">${esc(l[1])}</td><td class="en muted">${esc(l[3] || '')}</td><td>${l[2] ? '✅' : '❌'}</td></tr>`).join('')}</table>` : emptyState('clock', 'لا توجد عمليات بعد', 'ستظهر هنا أحدث عمليات البحث فور حدوثها.')}
     <div class="sp"></div><button class="btn ghost" id="clrlog" type="button">مسح سجل هذا الجهاز</button>`;
 
+  el.querySelectorAll('.kpi > b').forEach((b) => { if (/^\d+$/.test(b.textContent)) b.dataset.n = b.textContent; });
+  countUp(el);
   el.querySelectorAll('[data-r]').forEach((b) => b.onclick = () => { LS.set('brm_range', Number(b.dataset.r)); tabReports(el); });
   $('#rfr').onclick = () => tabReports(el);
   $('#clrlog').onclick = () => { LS.del('brm_log'); document.dispatchEvent(new CustomEvent('botrm:log')); toast('تم المسح'); tabReports(el); };
@@ -176,7 +191,7 @@ function editSite(id) {
     try {
       const changes = {}; box.querySelectorAll('[data-k]').forEach((i) => { if (String(r[i.dataset.k] || '') !== i.value.trim()) changes[i.dataset.k] = i.value.trim(); });
       if (!Object.keys(changes).length) throw new Error('لم تغيّر أي حقل.');
-      const rows = state.rows.map((x) => { const o = { ...x }; for (const k of Object.keys(o)) if (k.startsWith('_')) delete o[k]; return o.id === r.id ? { ...o, ...changes } : o; });
+      const rows = state.rows.map((x) => { const o = { ...x }; for (const k of Object.keys(o)) if (k.startsWith('_')) delete o[k]; return o.id === r.id ? { ...o, ...changes, ch: editHistory(r, changes) } : o; });
       const packet = await Core.seal(rows, '');
       await publishToAll(packet, { add: 0, chg: 1, rem: 0, name: `تعديل موقع ${r.id}` });
       setRows(rows, packet);
@@ -199,7 +214,7 @@ async function loadVersions() {
   box.innerHTML = (log.length ? log.map((v, i) => `<div class="alr ${i === 0 ? 'ok' : ''}"><span class="ai">${v.restored ? '↩️' : '📦'}</span><div style="flex:1"><b>${esc(v.name || 'نسخة')} ${i === 0 ? '<small>(الحالية)</small>' : ''}</b>
       <span>${new Date(v.ts).toLocaleString('en-GB', { hour12: false })} · ${v.count} موقع${v.add || v.chg || v.rem ? ` · +${v.add} ~${v.chg} −${v.rem}` : ''}</span>
       ${i ? `<br><button class="btn" data-restore="${esc(v.id)}" type="button">↩️ تراجع لهذه النسخة</button>` : ''}</div></div>`).join('')
-    : '<div class="muted">لا توجد نسخ بعد. تُسجَّل كل عملية نشر هنا مع إمكانية التراجع.</div>') + bk;
+    : emptyState('inbox', 'لا توجد نسخ بعد', 'تُسجَّل كل عملية نشر هنا مع إمكانية التراجع.')) + bk;
   box.querySelectorAll('[data-restore]').forEach((b) => b.onclick = async () => {
     if (!confirm('سيتم استبدال البيانات المنشورة لكل المستخدمين بهذه النسخة. متابعة؟')) return;
     b.disabled = true;
@@ -222,17 +237,18 @@ async function handleFile(f) {
     const wb = XLSX.read(buf, { type: 'array', cellFormula: false, cellStyles: false, cellNF: false, sheetStubs: false });
     const r = Core.parseWorkbook(XLSX, wb);
     if (!r.rows.length) throw new Error('لا توجد صفوف صالحة.');
-    const flat = (r) => { const o = { ...r, ...(r.x || {}) }; delete o._s; delete o.x; return o; };
+    const flat = (r) => { const o = { ...r, ...(r.x || {}) }; delete o.x; delete o.ch; Object.keys(o).forEach((k) => { if (k.startsWith('_')) delete o[k]; }); return o; };
     const old = new Map(state.rows.map((x) => [x.id, flat(x)]));
     let add = 0, chg = 0, same = 0; const seen = new Set(), changes = [], added = [];
     r.rows.forEach((x) => {
       seen.add(x.id);
       const o = old.get(x.id);
       if (!o) { add++; added.push(x); return; }
-      const n = flat(x), diffs = [];
+      const n = flat(x), diffs = []; fixSwappedCoords(n);
       new Set([...Object.keys(o), ...Object.keys(n)]).forEach((k) => { if (String(o[k] ?? '') !== String(n[k] ?? '')) diffs.push([k, o[k], n[k]]); });
       if (diffs.length) { chg++; changes.push({ id: x.id, diffs }); } else same++;
     });
+    applyHistory(r.rows, state.rows, changes);              // سجل «ماذا تغيّر في هذا الموقع» يُحفظ مع الصف
     const removed = []; old.forEach((v, k) => { if (!seen.has(k)) removed.push(v); });
     const rem = removed.length;
     staged = { rows: r.rows, warnings: r.warnings, sheet: r.sheet, name: f.name, add, chg, same, rem, changes, added, removed };

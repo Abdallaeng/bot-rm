@@ -1,8 +1,9 @@
 /** نقطة الدخول: تحميل البيانات ثم تشغيل الواجهة */
 import { $, esc, toast } from './lib/dom.js';
-import { state, fetchPacket, unlockPacket, setRows } from './data/store.js';
+import { state, fetchPacket, unlockPacket, setRows, storedPacket } from './data/store.js';
+import { checkSync } from './data/sync.js';
 import { flushPending } from './data/analytics.js';
-import { initBroadcast } from './ui/broadcast.js';
+import { initBroadcast, applyBroadcast } from './ui/broadcast.js';
 import { initSearch } from './ui/search.js';
 import { renderStats, renderFooter, renderConn, initInstallPrompt } from './ui/home.js';
 import { LS } from './lib/storage.js';
@@ -30,14 +31,14 @@ function showCodeGate(packet, wrong = false) {
 
 /** بعد العرض الفوري من الكاش: تحقّق بصمت من وجود بيانات أحدث وبدّلها */
 let current = null;
-async function refreshInBackground() {
+async function refreshInBackground(force = false) {
   try {
-    try {                                   // فحص خفيف: لا نحمّل الملف كاملاً إلا عند وجود تحديث
-      const v = await fetch('/api/dataver', { cache: 'no-store' });
-      if (v.ok && current && (await v.json()).updated === current.updated) return;
-    } catch { /* نكمل بالفحص الكامل */ }
-    const latest = await fetchPacket(true);
-    if (!current || latest.updated === current.updated) return;
+    const sync = await checkSync(force);    // طلب واحد خفيف (إصدار + إعلان)، محدود بمرة كل 5 دقائق
+    if (!sync) return;
+    if ('b' in sync) applyBroadcast(sync.b);
+    if (!current || !sync.updated || sync.updated === current.updated) return;
+    const latest = await fetchPacket(true);  // لا يُحمَّل الملف إلا عند وجود إصدار جديد فعلاً
+    if (latest.updated === current.updated) return;
     const rows = await unlockPacket(latest);
     if (!rows) return;
     setRows(rows, latest); current = latest;
@@ -47,9 +48,11 @@ async function refreshInBackground() {
 }
 
 async function boot() {
-  let packet;
-  try { packet = await fetchPacket(); }
-  catch { return showMessage('⚠️', 'تعذّر تحميل البيانات. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.'); }
+  let packet = await storedPacket();                    // الأسرع: من التخزين المحلي بلا أي طلب شبكة
+  if (!packet || !packet.ct) {
+    try { packet = await fetchPacket(); }
+    catch { return showMessage('⚠️', 'تعذّر تحميل البيانات. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.'); }
+  }
 
   const rows = await unlockPacket(packet);
   if (!rows) return showCodeGate(packet);
@@ -70,7 +73,8 @@ async function boot() {
   document.addEventListener('botrm:data', () => { renderStats(); renderConn(); });
   ['online', 'offline'].forEach((ev) => window.addEventListener(ev, renderConn));
   // تحديث تلقائي: عند الفتح، وعند العودة للتطبيق، وكل 10 دقائق
-  refreshInBackground();
+  refreshInBackground(qs.has('sync'));
+  document.addEventListener('botrm:sync', () => refreshInBackground(true));
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { refreshInBackground(); renderConn(); } });
   setInterval(refreshInBackground, 600_000);
 }

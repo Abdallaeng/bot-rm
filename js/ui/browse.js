@@ -8,11 +8,15 @@ import { setQuery } from './search.js';
 import { setNavList } from './swipe.js';
 import { ICONS } from '../lib/icons.js';
 import { previewImages, previewPdf } from './preview.js';
+import { mark, tokensOf } from '../lib/mark.js';
+import { emptyState } from '../lib/art.js';
+import { tween } from './effects.js';
 
 const NONE = 'غير محدد';
 const PAGE = 80;
 const sel = { clusters: [], gov: '', tech: '', text: '', sev: [], io: '', noTech: false };
 let shown = PAGE;
+let lastCount = 0;                   // لتحريك رقم الملخص من القيمة السابقة إلى الجديدة
 
 const clusterOf = (r) => r.cl || NONE;
 const techOf = (r) => (r.mn || '').trim() || NONE;
@@ -52,8 +56,9 @@ function render() {
   const techOpts = [`<option value="">كل الفنيين (${techCounts.length})</option>`]
     .concat(techCounts.map(([t, n]) => `<option value="${esc(t)}"${sel.tech === t ? ' selected' : ''}>${esc(t)} — ${n}</option>`)).join('');
 
+  const qt = sel.text.trim().toLowerCase(), toks = tokensOf(sel.text);
   const rows = list.slice(0, shown).map((r) =>
-    `<button class="li" type="button" data-id="${esc(r.id)}"><span class="n">${esc(r.id)}</span><span class="t"><span class="nm">${esc(r.nm || '—')}</span><span class="g">${[govName(r.gov), techOf(r)].filter(Boolean).map(esc).join(' · ')}</span></span>${r.sev ? `<span class="bd ${r.sev.toLowerCase()}">${esc(r.sev)}</span>` : ''}</button>`).join('');
+    `<button class="li" type="button" data-id="${esc(r.id)}"${r.sev ? ` data-sev="${esc(r.sev)}"` : ''}><span class="n">${qt && r.id.startsWith(qt) ? mark(r.id, [qt]) : esc(r.id)}</span><span class="t"><span class="nm">${mark(r.nm || '—', toks)}</span><span class="g">${[govName(r.gov), techOf(r)].filter(Boolean).map(esc).join(' · ')}</span></span>${r.sev ? `<span class="bd ${r.sev.toLowerCase()}">${esc(r.sev)}</span>` : ''}</button>`).join('');
 
   root.innerHTML = `
     <div class="bsec"><label>الكلستر <small>(يمكنك اختيار أكثر من كلستر)</small>${sel.clusters.length ? ' <button type="button" class="clr-cl" id="bClear">مسح الاختيار</button>' : ''}</label><div class="cchips">${clusterChips()}</div></div>
@@ -61,13 +66,14 @@ function render() {
       <div class="bsec"><label>المحافظة</label><div class="gchips">${govChips}</div></div>
       <div class="bsec"><label for="bTech">الفني</label><select id="bTech" class="inp">${techOpts}</select></div>
       <div class="bsec"><label>تصفية متقدمة</label><div class="gchips">${['S1', 'S2', 'S3'].map((v) => `<button type="button" class="gchip fl${sel.sev.includes(v) ? ' on' : ''}" data-sev="${v}">${v}</button>`).join('')}${[['Indoor', 'داخلي'], ['Outdoor', 'خارجي']].map(([k, l]) => `<button type="button" class="gchip fl${sel.io === k ? ' on' : ''}" data-io="${k}">${l}</button>`).join('')}<button type="button" class="gchip fl${sel.noTech ? ' on' : ''}" id="bNoTech">بدون فني</button></div></div>
-      <div class="bsum"><div><b>${list.length}</b> موقع</div><div class="sevs">${['S1', 'S2', 'S3'].filter((s) => sev.get(s)).map((s) => `<span class="bd ${s.toLowerCase()}">${s} · ${sev.get(s)}</span>`).join('')}</div></div>
+      <div class="bsum"><div><b id="bCount" data-n="${lastCount}">${lastCount.toLocaleString('en')}</b> موقع</div><div class="sevs">${['S1', 'S2', 'S3'].filter((s) => sev.get(s)).map((s) => `<span class="bd ${s.toLowerCase()}">${s} · ${sev.get(s)}</span>`).join('')}</div></div>
       <div class="exp"><button class="btn wa" id="bShare" type="button"${list.length ? '' : ' disabled'}>${ICONS.wa}صورة للواتساب</button><button class="btn pdf" id="bPdf" type="button"${list.length ? '' : ' disabled'}>${ICONS.pdf}تصدير PDF</button></div>
       <input id="bText" class="inp" type="search" inputmode="search" placeholder="ابحث داخل النتائج (رقم أو عنوان)" value="${esc(sel.text)}">
-      <div class="list">${rows || '<div class="notfound"><b>لا توجد مواقع</b>غيّر المحافظة أو الفني.</div>'}</div>
+      <div class="list">${rows || emptyState('list', 'لا توجد مواقع', 'غيّر المحافظة أو الفني أو التصفية.')}</div>
       ${list.length > shown ? `<button class="btn" id="bMore" type="button" style="width:100%;margin-top:10px">عرض المزيد (${list.length - shown})</button>` : ''}`
-      : '<div class="notfound"><b>اختر كلستراً أو أكثر</b>لتظهر كل مواقعه مرتبة حسب المحافظة والفني.</div>'}`;
+      : emptyState('layers', 'اختر كلستراً أو أكثر', 'لتظهر كل مواقعه مرتبة حسب المحافظة والفني.')}`;
 
+  const cEl = $('#bCount'); if (cEl) { tween(cEl, list.length); lastCount = list.length; }
   root.querySelectorAll('[data-cl]').forEach((b) => b.onclick = () => {
     const c = b.dataset.cl, i = sel.clusters.indexOf(c);
     if (i < 0) sel.clusters.push(c); else sel.clusters.splice(i, 1);
@@ -148,7 +154,7 @@ export function openBrowse() {
     const all = new Set(state.rows.map(clusterOf));
     if (Array.isArray(saved)) sel.clusters = saved.filter((c) => all.has(c));
   }
-  el.hidden = false;
+  el.hidden = false; lastCount = 0;
   document.body.classList.add('no-scroll');
   history.pushState({ browse: 1 }, '');
   render();

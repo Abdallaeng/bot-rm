@@ -1,7 +1,8 @@
 /** بطاقة تفاصيل الموقع */
 import { esc, copyText } from '../lib/dom.js';
 import { IO, govName } from '../lib/labels.js';
-import { renderMore } from './fields.js';
+import { renderMore, FIELD_LABELS } from './fields.js';
+import { formatDate } from '../lib/text.js';
 
 const svg = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const ICON = {
@@ -21,7 +22,7 @@ const ICON = {
 const splitPhones = (v) => (v ? String(v).split(/\s*[-–—+،,/]\s*|\s{2,}/).map((s) => s.trim()).filter(Boolean) : []);
 const isPhone = (s) => s.replace(/\D/g, '').length >= 7 && /^[\d\s+]+$/.test(s);
 
-function whatsappUrl(num) {
+export function whatsappUrl(num) {
   let d = num.replace(/\D/g, '');
   if (d.startsWith('00')) d = d.slice(2);
   else if (d.startsWith('0')) d = `964${d.slice(1)}`;
@@ -38,14 +39,32 @@ function collectNumbers(r) {
   });
 }
 
+/** أزرار اتصال / واتساب / نسخ مصغّرة لرقم واحد (تُستعمل في الجداول) */
+export function phoneActions(num, withCopy = true) {
+  const clean = num.replace(/\s/g, '');
+  return `<span class="pa"><a class="mini" href="tel:${esc(clean)}" aria-label="اتصال" title="اتصال">${ICON.call}</a><a class="mini wa" href="${whatsappUrl(num)}" target="_blank" rel="noopener" aria-label="واتساب" title="واتساب">${ICON.whatsapp}</a>${withCopy ? `<button class="mini cp" type="button" data-copy="${esc(clean)}" aria-label="نسخ" title="نسخ">${ICON.copy}</button>` : ''}</span>`;
+}
+
 function contactsBlock(r) {
   const list = collectNumbers(r);
   if (!list.length) return '';
   const pills = list.map(({ label, num }) => {
     const tel = `tel:${esc(num.replace(/\s/g, ''))}`;
-    return `<div class="pill"><a class="pn" href="${tel}" aria-label="اتصال ${esc(label)}"><small>${esc(label)}</small><span>${esc(num)}</span></a><a class="mini wa" href="${whatsappUrl(num)}" target="_blank" rel="noopener" aria-label="واتساب ${esc(label)}">${ICON.whatsapp}</a></div>`;
+    return `<div class="pill"><a class="pn" href="${tel}" aria-label="اتصال ${esc(label)}"><small>${esc(label)}</small><span>${esc(num)}</span></a><a class="mini wa" href="${whatsappUrl(num)}" target="_blank" rel="noopener" aria-label="واتساب ${esc(label)}">${ICON.whatsapp}</a><button class="mini cp" type="button" data-copy="${esc(num.replace(/\s/g, ''))}" aria-label="نسخ رقم ${esc(label)}" title="نسخ الرقم">${ICON.copy}</button></div>`;
   }).join('');
   return `<div class="contacts${list.length > 4 ? ' dense' : ''}">${pills}</div>`;
+}
+
+/* ---------- سجل التغييرات (يُحسب عند النشر ويُحفظ في r.ch) ---------- */
+function historyBlock(r) {
+  if (!Array.isArray(r.ch) || !r.ch.length) return '';
+  const byDay = new Map();
+  r.ch.forEach((e) => { const d = formatDate(new Date(e[0]).toISOString()); (byDay.get(d) || byDay.set(d, []).get(d)).push(e); });
+  const val = (v) => (v ? `<span class="hv">${esc(v)}</span>` : '<span class="hv none">فارغ</span>');
+  const body = [...byDay.entries()].map(([day, list]) => `<div class="hday"><b class="en">${esc(day)}</b>${list.map(([, k, o, n]) => k === '__new'
+    ? '<div class="hrow new">➕ أُضيف الموقع إلى القائمة</div>'
+    : `<div class="hrow"><span class="hk">${esc(FIELD_LABELS[k] || k)}</span>${val(o)}<i aria-hidden="true">←</i>${val(n)}</div>`).join('')}</div>`).join('');
+  return `<details class="more hist"><summary><span>سجل التغييرات</span><em>آخر تعديل ${esc(formatDate(new Date(r.ch[0][0]).toISOString()))}</em></summary><div class="more-body">${body}</div></details>`;
 }
 
 /* ---------- مكوّنات ---------- */
@@ -85,6 +104,7 @@ export function renderCard(r) {
       ${tile('k-tech', ICON.tech, 'الفني', r.mn ? `<b>${esc(r.mn)}</b>` : NONE, contactsBlock(r))}
       ${tile('k-addr', ICON.address, 'العنوان', r.nm ? `<b>${esc(r.nm)}</b>` : NONE)}
     </div>
+    ${historyBlock(r)}
     ${more.count ? `<details class="more"><summary><span>عرض المزيد</span><em>${more.count} حقل من الملف</em></summary><div class="more-body">${more.html}</div></details>` : ''}
   </article>`;
 }
@@ -139,5 +159,6 @@ export function wireCard(r) {
   document.getElementById('printBtn')?.addEventListener('click', () => window.print());
   document.getElementById('shareBtn')?.addEventListener('click', () => shareSite(r));
   document.getElementById('copyBtn')?.addEventListener('click', () => copyText(plainText(r)));
+  document.querySelectorAll('.pill [data-copy]').forEach((b) => b.addEventListener('click', () => copyText(b.dataset.copy)));
 }
 

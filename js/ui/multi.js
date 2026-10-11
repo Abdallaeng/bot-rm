@@ -6,11 +6,14 @@ import { govName } from '../lib/labels.js';
 import { state } from '../data/store.js';
 import { ICONS } from '../lib/icons.js';
 import { setQuery } from './search.js';
+import { phoneActions } from './card.js';
+import { copyText as copy } from '../lib/dom.js';
 
 const START_ROWS = 10;
 let values = [];                         // نص كل صف
 
 const save = () => LS.set('brm_multi', values);
+const firstPhone = (r) => (String(r.mp || '').match(/\+?\d{9,13}/) || [''])[0].trim();
 
 function lookup(raw) {
   const q = latinDigits(raw).trim();
@@ -24,11 +27,11 @@ function lookup(raw) {
 
 function cells(raw) {
   const m = lookup(raw);
-  if (!m) return '<td></td><td></td><td></td><td></td>';
-  if (!m.r) return '<td class="mx" colspan="4">غير موجود</td>';
+  if (!m) return '<td></td><td></td><td></td><td></td><td></td>';
+  if (!m.r) return '<td class="mx" colspan="5">غير موجود</td>';
   const r = m.r;
   const sev = r.sev ? `<span class="bd ${r.sev.toLowerCase()}">${esc(r.sev)}</span>` : '—';
-  return `<td><b>${esc(r.cl || 'غير محدد')}</b>${m.approx ? `<small class="ap">الموقع ${esc(r.id)}</small>` : ''}</td><td>${esc(govName(r.gov) || '—')}</td><td>${esc(r.mn || '—')}</td><td>${sev}</td>`;
+  return `<td><b>${esc(r.cl || 'غير محدد')}</b>${m.approx ? `<small class="ap">الموقع ${esc(r.id)}</small>` : ''}</td><td>${esc(govName(r.gov) || '—')}</td><td>${esc(r.mn || '—')}</td><td class="ph">${firstPhone(r) ? phoneActions(firstPhone(r), false) : '—'}</td><td>${sev}</td>`;
 }
 
 function rowHtml(i) {
@@ -84,8 +87,69 @@ function exportRows() {
 async function copyTable() {
   const rows = exportRows();
   if (!rows.length) return toast('الجدول فارغ');
-  const tsv = ['المدخل\tرقم الموقع\tالكلستر\tالمحافظة\tالفني\tالخطورة'].concat(rows.map(({ v, r }) => (r ? [v, r.id, r.cl || '', govName(r.gov) || '', r.mn || '', r.sev || ''] : [v, '', 'غير موجود', '', '', '']).join('\t'))).join('\n');
+  const tsv = ['المدخل\tرقم الموقع\tالكلستر\tالمحافظة\tالفني\tالهاتف\tالخطورة'].concat(rows.map(({ v, r }) => (r ? [v, r.id, r.cl || '', govName(r.gov) || '', r.mn || '', firstPhone(r), r.sev || ''] : [v, '', 'غير موجود', '', '', '', '']).join('\t'))).join('\n');
   copyText(tsv);
+}
+
+/* ---------- استيراد قائمة (لصق أو ملف txt/csv/xlsx) ---------- */
+const MAX_IMPORT = 500;
+
+export function parseList(text) {
+  const out = [];
+  for (const line of String(text).split(/[\n\r\t,،;]+/)) {
+    const t = line.trim();
+    if (!t) continue;
+    const parts = t.split(/\s+/);
+    if (parts.length > 1 && parts.every((p) => /^\d{3,}$/.test(latinDigits(p)))) out.push(...parts); else out.push(t);
+  }
+  return out;
+}
+
+async function readFile(file) {
+  if (/\.xlsx?$/i.test(file.name)) {
+    if (!window.XLSX) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'xlsx.mini.min.js'; s.onload = res; s.onerror = () => rej(new Error('xlsx')); document.head.appendChild(s); });
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, blankrows: false });
+    const col = rows.map((r) => String(r.find((c) => c !== '' && c != null) ?? '')).filter(Boolean);
+    if (col.length && /موقع|site|id|رقم/i.test(col[0]) && !/^\d+$/.test(col[0])) col.shift();
+    return col.join('\n');
+  }
+  return file.text();
+}
+
+function openImport() {
+  const m = document.createElement('div');
+  m.className = 'pv';
+  m.innerHTML = `<div class="pvbox setbox impbox" role="dialog" aria-label="استيراد قائمة"><h3>استيراد قائمة مواقع</h3>
+    <p>الصق أرقام أو أسماء المواقع (كل موقع في سطر)، أو اختر ملف نصي / CSV / Excel — يؤخذ العمود الأول.</p>
+    <textarea id="impText" dir="auto" rows="7" placeholder="1234&#10;5678&#10;3011"></textarea>
+    <label class="filebtn"><input id="impFile" type="file" accept=".txt,.csv,.xlsx,.xls,text/plain,text/csv" hidden><span class="btn">اختيار ملف…</span></label>
+    <div class="impn" id="impN"></div>
+    <div class="pvbar"><button class="btn" data-a="add" type="button">إضافة للجدول</button><button class="btn pri" data-a="replace" type="button">استبدال الجدول</button></div>
+    <button class="btn ghost" data-a="x" type="button" style="width:100%;margin-top:6px">إلغاء</button></div>`;
+  const ta = m.querySelector('#impText'), info = m.querySelector('#impN');
+  const update = () => { const n = parseList(ta.value).length; info.textContent = n ? `${n} مدخل${n > MAX_IMPORT ? ` — سيؤخذ أول ${MAX_IMPORT}` : ''}` : ''; };
+  ta.addEventListener('input', update);
+  m.querySelector('#impFile').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    try { ta.value = await readFile(f); update(); } catch { toast('تعذّرت قراءة الملف'); }
+  });
+  m.onclick = (e) => {
+    if (e.target === m) return m.remove();
+    const act = e.target.closest('[data-a]')?.dataset.a;
+    if (!act) return;
+    if (act !== 'x') {
+      const list = parseList(ta.value).slice(0, MAX_IMPORT);
+      if (!list.length) return toast('لا توجد مدخلات');
+      const keep = act === 'add' ? values.filter((v) => v.trim()) : [];
+      values = keep.concat(list);
+      ensureRows(START_ROWS); save(); renderAll();
+      toast(`تم استيراد ${list.length} مدخل`);
+    }
+    m.remove();
+  };
+  document.body.appendChild(m);
+  ta.focus();
 }
 
 async function shareImage() {
@@ -148,6 +212,8 @@ export function initMulti() {
   $('#mAdd5').addEventListener('click', () => { for (let k = 0; k < 5; k++) values.push(''); save(); renderAll(); });
   $('#mCopy').addEventListener('click', copyTable);
   $('#mImg').addEventListener('click', shareImage);
+  $('#mImport').addEventListener('click', openImport);
+  body.addEventListener('click', (e) => { const b = e.target.closest('[data-copy]'); if (b) copy(b.dataset.copy); });
   $('#mClear').addEventListener('click', () => { values = Array(START_ROWS).fill(''); save(); renderAll(); });
   $('#mImg').insertAdjacentHTML('afterbegin', ICONS.wa);
   $('#mCopy').insertAdjacentHTML('afterbegin', ICONS.save);

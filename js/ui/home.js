@@ -1,6 +1,7 @@
 /** الصفحة الرئيسية: الإحصاءات وآخر عمليات البحث */
 import { $, $$, esc } from '../lib/dom.js';
 import { formatDate } from '../lib/text.js';
+import { LS } from '../lib/storage.js';
 import { stats } from '../data/store.js';
 import { recentSearches } from '../data/analytics.js';
 import { countUp } from './effects.js';
@@ -33,9 +34,11 @@ export function renderConn() {
 
 let popular = [];
 export async function loadPopular(onPick) {
+  const c = LS.get('brm_pop', null);                       // نحفظ القائمة ساعة كاملة: لا طلب عند كل فتح
+  if (c) { popular = c.top || []; renderRecent(onPick); if (Date.now() - c.ts < 3600e3) return; }
   try {
     const r = await fetch('/api/popular');
-    if (r.ok) { popular = (await r.json()).top || []; renderRecent(onPick); }
+    if (r.ok) { popular = (await r.json()).top || []; LS.set('brm_pop', { ts: Date.now(), top: popular }); renderRecent(onPick); }
   } catch { /* بدون إنترنت */ }
 }
 

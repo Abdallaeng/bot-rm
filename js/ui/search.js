@@ -5,7 +5,9 @@ import { govName } from '../lib/labels.js';
 import { state } from '../data/store.js';
 import { track } from '../data/analytics.js';
 import { renderCard, wireCard } from './card.js';
-import { pingSite } from './effects.js';
+import { pingSite, transition } from './effects.js';
+import { mark } from '../lib/mark.js';
+import { emptyState } from '../lib/art.js';
 import { renderRecent, loadPopular } from './home.js';
 import { setNavList, navBar, initSwipe } from './swipe.js';
 
@@ -20,10 +22,12 @@ const currentQuery = () => latinDigits(input().value).trim();
 function dismissKeyboard() { if (isTouchDevice()) input().blur(); }
 
 export function setQuery(value) {
-  input().value = value;
-  onInput();
-  clearTimeout(commitTimer);
-  search(true);
+  transition(() => {
+    input().value = value;
+    onInput();
+    clearTimeout(commitTimer);
+    search(true);
+  });
 }
 
 function onInput() {
@@ -42,12 +46,12 @@ function similarChips(sites, withoutTitle) {
   return `<div class="simi"><small>${withoutTitle ? '' : 'مواقع مشابهة'}</small><div>${chips}</div></div>`;
 }
 
-const EMPTY_ART = '<svg viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="42" cy="42" r="22" opacity=".9"/><path d="m58 58 22 22" /><path d="M42 30v24M34 54l8-24 8 24M36 44h12" opacity=".55"/><path d="M14 20h10M10 28h6M74 14h8" opacity=".35"/></svg>';
-const notFound = (title, hint, extra = '') => `<div class="empty">${EMPTY_ART}<b>${title}</b>${hint}${extra}</div>`;
+const notFound = (title, hint, extra = '') => emptyState('search', title, hint, extra);
 
-function listItem(r) {
-  const sub = [govName(r.gov), r.cl].filter(Boolean).map(esc).join(' · ');
-  return `<button class="li" type="button" data-id="${esc(r.id)}"><span class="n">${esc(r.id)}</span><span class="t"><span class="nm">${esc(r.nm || '—')}</span><span class="g">${sub}</span></span></button>`;
+/** عنصر قائمة: tokens لتظليل النص المطابق، idq لتظليل بداية الرقم */
+function listItem(r, tokens = [], idq = '') {
+  const sub = [govName(r.gov), r.cl].filter(Boolean).map((v) => mark(v, tokens)).join(' · ');
+  return `<button class="li" type="button" data-id="${esc(r.id)}"${r.sev ? ` data-sev="${esc(r.sev)}"` : ''}><span class="n">${idq ? mark(r.id, [idq]) : esc(r.id)}</span><span class="t"><span class="nm">${mark(r.nm || '—', tokens)}</span><span class="g">${sub}</span></span></button>`;
 }
 
 function wireLinks() {
@@ -67,7 +71,7 @@ function showId(raw, out) {
     wireCard(hit);
     if (shownId !== hit.id) { shownId = hit.id; pingSite(hit.sev); }
   } else if (similar.length) {
-    out.innerHTML = `<div class="suggest-title">مواقع تبدأ بـ <b>${esc(raw)}</b></div><div class="list">${similar.map(listItem).join('')}</div>`;
+    out.innerHTML = `<div class="suggest-title">مواقع تبدأ بـ <b>${esc(raw)}</b></div><div class="list">${similar.map((r) => listItem(r, [], raw)).join('')}</div>`;
   } else {
     const n = Number(raw);
     const near = state.rows.filter((r) => /^\d+$/.test(r.id)).sort((a, b) => Math.abs(a.id - n) - Math.abs(b.id - n)).slice(0, 6);
@@ -105,7 +109,7 @@ function showText(raw, out) {
   let approx = false;
   if (!results.length && tokens.some((t) => t.length >= 4)) { results = state.rows.filter((r) => fuzzyMatch(r, tokens)).slice(0, 30); approx = results.length > 0; }
   out.innerHTML = results.length
-    ? `${approx ? '<div class="suggest-title">لا يوجد تطابق تام — نتائج <b>مقاربة</b> لما كتبت</div>' : ''}<div class="list">${results.map(listItem).join('')}</div>`
+    ? `${approx ? '<div class="suggest-title">لا يوجد تطابق تام — نتائج <b>مقاربة</b> لما كتبت</div>' : ''}<div class="list">${results.map((r) => listItem(r, tokens)).join('')}</div>`
     : notFound('لا توجد نتائج', 'جرّب رقم الموقع أو جزءاً من العنوان أو اسم الفني.');
   return { found: results.length > 0, exact: false };
 }
@@ -115,7 +119,7 @@ function showPhone(raw, out) {
   const d = raw.replace(/^0+/, '');
   const results = state.rows.filter((r) => r._p.replace(/ /g, '').includes(d) || r._p.includes(raw)).slice(0, 30);
   out.innerHTML = results.length
-    ? `<div class="suggest-title">مواقع مرتبطة بالرقم <b class="en">${esc(raw)}</b></div><div class="list">${results.map(listItem).join('')}</div>`
+    ? `<div class="suggest-title">مواقع مرتبطة بالرقم <b class="en">${esc(raw)}</b></div><div class="list">${results.map((r) => listItem(r)).join('')}</div>`
     : notFound('لا يوجد موقع بهذا الرقم', 'تأكد من رقم الهاتف وأعد المحاولة.');
   return { found: results.length > 0, exact: results.length === 1 };
 }

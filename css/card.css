@@ -74,7 +74,7 @@
 .muted { color: var(--mut); font-weight: 400; }
 
 /* أرقام الاتصال: شبكة مضغوطة (عمودان على الهاتف) */
-.contacts { flex: 1 0 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(146px, 1fr)); gap: 6px; margin-top: 2px; }
+.contacts { flex: 1 0 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(176px, 1fr)); gap: 6px; margin-top: 2px; }
 .pill {
   display: flex; align-items: center; gap: 4px; padding: 3px; min-width: 0;
   border: 1px solid var(--line); border-radius: 12px; background: var(--surf2); transition: border-color .15s;

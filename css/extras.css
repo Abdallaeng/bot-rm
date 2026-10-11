@@ -1,0 +1,52 @@
+/* إضافات: شريط الخطورة، تظليل المطابقة، انتقالات، سجل التغييرات، خطوط مصغّرة، استيراد */
+
+/* شريط جانبي بلون الخطورة (S1 أحمر · S2 برتقالي · S3 أخضر) على البطاقة وعناصر القوائم */
+.card.sev-s1 { border-inline-start: 5px solid var(--s1); }
+.card.sev-s2 { border-inline-start: 5px solid var(--s2); }
+.card.sev-s3 { border-inline-start: 5px solid var(--s3); }
+.li[data-sev="S1"] { border-inline-start: 4px solid var(--s1); }
+.li[data-sev="S2"] { border-inline-start: 4px solid var(--s2); }
+.li[data-sev="S3"] { border-inline-start: 4px solid var(--s3); }
+
+/* تظليل الجزء المطابق من الاسم أو الرقم */
+mark.hl { padding: 0 2px; margin: 0 -2px; color: inherit; border-radius: 4px; background: color-mix(in srgb, var(--acc) 26%, transparent); box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--acc) 70%, transparent); }
+
+/* انتقال سلس بين المواقع: تتحرك البطاقة وحدها ويبقى باقي الصفحة ثابتاً */
+.card { view-transition-name: sitecard; }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-old(sitecard) { animation: vtOut .16s ease-in both; }
+::view-transition-new(sitecard) { animation: vtIn .3s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes vtOut { to { opacity: 0; transform: translateY(-6px) scale(.985); } }
+@keyframes vtIn { from { opacity: 0; transform: translateY(12px) scale(.985); } }
+@media (prefers-reduced-motion: reduce) { ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; } }
+
+/* سجل التغييرات في البطاقة */
+.hist .hday { display: grid; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--surf2); }
+.hist .hday > b { font-size: 12px; color: var(--mut); }
+.hrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 14px; }
+.hrow .hk { font-weight: 600; min-width: 84px; }
+.hrow .hv { padding: 1px 8px; border-radius: 8px; background: color-mix(in srgb, var(--acc) 10%, transparent); overflow-wrap: anywhere; }
+.hrow .hv.none { color: var(--mut); font-style: italic; }
+.hrow i { color: var(--mut); font-style: normal; }
+.hrow.new { color: var(--s3); font-weight: 600; }
+
+/* خطوط الاتجاه المصغّرة في تقارير الإدارة */
+.bar.sp { grid-template-columns: 96px 1fr 44px 64px; margin: 9px 0; }
+.spk { width: 64px; height: 20px; color: var(--acc); opacity: .9; overflow: visible; }
+
+/* أزرار الهاتف: نسخ + جدول البحث المتعدد */
+.mini.cp { border: 0; background: transparent; color: var(--mut); cursor: pointer; padding: 0; }
+.mini.cp:hover { color: var(--acc); background: color-mix(in srgb, var(--acc) 12%, transparent); }
+.pill .mini { width: 28px; height: 28px; }
+.pa { display: inline-flex; gap: 2px; }
+.mt td.ph { white-space: nowrap; }
+.mt .pa .mini { width: 28px; height: 28px; }
+
+/* استيراد قائمة */
+.impbox p { margin: 0 0 10px; color: var(--mut); font-size: var(--fs-sm); }
+.impbox textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 12px; background: var(--bg2); color: var(--tx); font: 500 15px/1.6 'IBM Plex Sans Arabic', system-ui; resize: vertical; outline: 0; }
+.impbox textarea:focus { border-color: var(--acc); }
+.impbox .filebtn { display: block; margin: 10px 0 4px; }
+.impbox .filebtn .btn { width: 100%; justify-content: center; cursor: pointer; }
+.impn { min-height: 20px; margin-bottom: 8px; color: var(--acc); font-weight: 600; font-size: var(--fs-sm); }
+.impbox .pvbar { grid-template-columns: 1fr 1fr; }
