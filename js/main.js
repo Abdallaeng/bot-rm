@@ -10,6 +10,7 @@ import { initTheme } from './ui/theme.js';
 import { initBrowse, openBrowse } from './ui/browse.js';
 import { initHaptics } from './lib/haptic.js';
 import { initSettings } from './ui/settings.js';
+import { initMulti } from './ui/multi.js';
 
 function showMessage(title, message, withRetry = true) {
   $('#main').innerHTML = `<div class="gate"><div class="card"><h2>${title}</h2><p>${esc(message)}</p>${withRetry ? '<button class="btn pri" onclick="location.reload()">إعادة المحاولة</button>' : ''}</div></div>`;
@@ -60,6 +61,7 @@ async function boot() {
   initInstallPrompt();
   initSearch();
   initBrowse();
+  initMulti();
   initBroadcast();
   const qs = new URLSearchParams(location.search);       // اختصارات الشاشة الرئيسية
   if (qs.has('browse')) openBrowse(); else if (qs.has('focus')) $('#q').focus();
