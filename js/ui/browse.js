@@ -5,11 +5,13 @@ import { LS } from '../lib/storage.js';
 import { govName } from '../lib/labels.js';
 import { state } from '../data/store.js';
 import { setQuery } from './search.js';
+import { setNavList } from './swipe.js';
 import { ICONS } from '../lib/icons.js';
+import { previewImages, previewPdf } from './preview.js';
 
 const NONE = 'غير محدد';
 const PAGE = 80;
-const sel = { clusters: [], gov: '', tech: '', text: '' };
+const sel = { clusters: [], gov: '', tech: '', text: '', sev: [], io: '', noTech: false };
 let shown = PAGE;
 
 const clusterOf = (r) => r.cl || NONE;
@@ -23,6 +25,9 @@ function filtered() {
     sel.clusters.includes(clusterOf(r))
     && (!sel.gov || r.gov === sel.gov)
     && (!sel.tech || techOf(r) === sel.tech)
+    && (!sel.sev.length || sel.sev.includes(r.sev))
+    && (!sel.io || r.io === sel.io)
+    && (!sel.noTech || techOf(r) === NONE)
     && (!q || r.id.startsWith(q) || (r.nm || '').toLowerCase().includes(q)));
 }
 
@@ -55,6 +60,7 @@ function render() {
     ${sel.clusters.length ? `
       <div class="bsec"><label>المحافظة</label><div class="gchips">${govChips}</div></div>
       <div class="bsec"><label for="bTech">الفني</label><select id="bTech" class="inp">${techOpts}</select></div>
+      <div class="bsec"><label>تصفية متقدمة</label><div class="gchips">${['S1', 'S2', 'S3'].map((v) => `<button type="button" class="gchip fl${sel.sev.includes(v) ? ' on' : ''}" data-sev="${v}">${v}</button>`).join('')}${[['Indoor', 'داخلي'], ['Outdoor', 'خارجي']].map(([k, l]) => `<button type="button" class="gchip fl${sel.io === k ? ' on' : ''}" data-io="${k}">${l}</button>`).join('')}<button type="button" class="gchip fl${sel.noTech ? ' on' : ''}" id="bNoTech">بدون فني</button></div></div>
       <div class="bsum"><div><b>${list.length}</b> موقع</div><div class="sevs">${['S1', 'S2', 'S3'].filter((s) => sev.get(s)).map((s) => `<span class="bd ${s.toLowerCase()}">${s} · ${sev.get(s)}</span>`).join('')}</div></div>
       <div class="exp"><button class="btn wa" id="bShare" type="button"${list.length ? '' : ' disabled'}>${ICONS.wa}صورة للواتساب</button><button class="btn pdf" id="bPdf" type="button"${list.length ? '' : ' disabled'}>${ICONS.pdf}تصدير PDF</button></div>
       <input id="bText" class="inp" type="search" inputmode="search" placeholder="ابحث داخل النتائج (رقم أو عنوان)" value="${esc(sel.text)}">
@@ -65,10 +71,13 @@ function render() {
   root.querySelectorAll('[data-cl]').forEach((b) => b.onclick = () => {
     const c = b.dataset.cl, i = sel.clusters.indexOf(c);
     if (i < 0) sel.clusters.push(c); else sel.clusters.splice(i, 1);
-    sel.gov = sel.tech = sel.text = ''; shown = PAGE; LS.set('brm_clusters', sel.clusters); render();
+    sel.gov = sel.tech = sel.text = ''; sel.sev = []; sel.io = ''; sel.noTech = false; shown = PAGE; LS.set('brm_clusters', sel.clusters); render();
   });
-  $('#bClear')?.addEventListener('click', () => { sel.clusters = []; sel.gov = sel.tech = sel.text = ''; LS.set('brm_clusters', []); render(); });
+  $('#bClear')?.addEventListener('click', () => { sel.clusters = []; sel.gov = sel.tech = sel.text = ''; sel.sev = []; sel.io = ''; sel.noTech = false; LS.set('brm_clusters', []); render(); });
   root.querySelectorAll('[data-gov]').forEach((b) => b.onclick = () => { sel.gov = b.dataset.gov; sel.tech = ''; shown = PAGE; render(); });
+  root.querySelectorAll('[data-sev]').forEach((b) => b.onclick = () => { const v = b.dataset.sev, i = sel.sev.indexOf(v); if (i < 0) sel.sev.push(v); else sel.sev.splice(i, 1); shown = PAGE; render(); });
+  root.querySelectorAll('[data-io]').forEach((b) => b.onclick = () => { sel.io = sel.io === b.dataset.io ? '' : b.dataset.io; shown = PAGE; render(); });
+  $('#bNoTech')?.addEventListener('click', () => { sel.noTech = !sel.noTech; if (sel.noTech) sel.tech = ''; shown = PAGE; render(); });
   $('#bTech')?.addEventListener('change', (e) => { sel.tech = e.target.value; shown = PAGE; render(); });
   const text = $('#bText');
   text?.addEventListener('input', (e) => {
@@ -79,7 +88,7 @@ function render() {
   $('#bShare')?.addEventListener('click', () => exportList('img'));
   $('#bPdf')?.addEventListener('click', () => exportList('pdf'));
   $('#bMore')?.addEventListener('click', () => { shown += PAGE; render(); });
-  root.querySelectorAll('.li[data-id]').forEach((b) => b.onclick = () => { close(true); setQuery(b.dataset.id); window.scrollTo({ top: 0 }); });
+  root.querySelectorAll('.li[data-id]').forEach((b) => b.onclick = () => { setNavList(filtered().sort((a, b) => a.id - b.id).map((r) => r.id)); close(true); setQuery(b.dataset.id); window.scrollTo({ top: 0 }); });
 }
 
 const MAXIMG = 90;
@@ -120,43 +129,6 @@ async function exportList(kind) {
     console.error(e);
     alert('تعذّر الإنشاء');
   } finally { btn.disabled = false; btn.innerHTML = old; }
-}
-
-function previewPdf(ex, file, text, n) {
-  const url = URL.createObjectURL(file);
-  const m = document.createElement('div');
-  m.className = 'pv';
-  m.innerHTML = `<div class="pvbox"><div class="pvdoc"><b>📄 ${esc(file.name)}</b><span>${n} صفحة · ${(file.size / 1048576).toFixed(1)} MB</span></div>
-    <div class="pvbar"><button class="btn wa" data-a="share">مشاركة</button><button class="btn" data-a="save">حفظ PDF</button><button class="btn" data-a="x">إغلاق</button></div></div>`;
-  const done = () => { URL.revokeObjectURL(url); m.remove(); };
-  const save = () => { if (ex.inApp()) { ex.shareViaApp([{ blob: file, name: file.name }], text); return; } const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); };
-  m.onclick = async (e) => {
-    const a = e.target.closest('[data-a]')?.dataset.a;
-    if (e.target === m || a === 'x') return done();
-    if (a === 'save') save();
-    if (a === 'share') {
-      if (ex.inApp()) ex.shareViaApp([{ blob: file, name: file.name }], text);
-      else if (navigator.canShare?.({ files: [file] })) { try { await navigator.share({ files: [file], title: file.name, text }); } catch { /* cancelled */ } }
-      else { save(); alert('المشاركة المباشرة غير مدعومة هنا — تم حفظ الملف.'); }
-    }
-  };
-  document.body.appendChild(m);
-}
-
-function previewImages(ex, blobs, name, text) {
-  const urls = blobs.map((b) => URL.createObjectURL(b));
-  const m = document.createElement('div');
-  m.className = 'pv';
-  m.innerHTML = `<div class="pvbox"><div class="pvimgs">${urls.map((u) => `<img src="${u}" alt="">`).join('')}</div>
-    <div class="pvbar"><button class="btn wa" data-a="share">${ICONS.wa}مشاركة على واتساب</button><button class="btn" data-a="save">${ICONS.save}حفظ الصورة</button><button class="btn" data-a="x">إغلاق</button></div></div>`;
-  const done = () => { urls.forEach(URL.revokeObjectURL); m.remove(); };
-  m.onclick = async (e) => {
-    const a = e.target.closest('[data-a]')?.dataset.a;
-    if (e.target === m || a === 'x') return done();
-    if (a === 'save') ex.downloadImages(blobs, name);
-    if (a === 'share' && !(await ex.shareImages(blobs, name, text))) { ex.downloadImages(blobs, name); alert('المشاركة المباشرة غير مدعومة هنا — تم حفظ الصورة، أرسلها من الواتساب.'); }
-  };
-  document.body.appendChild(m);
 }
 
 function close(fromAction = false) {

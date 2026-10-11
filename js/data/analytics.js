@@ -11,7 +11,7 @@ const device = () => {
 };
 
 let lastTracked = '', timer = 0;
-export function track(query, found) {
+export function track(query, found, gov = '') {
   const sig = `${query}|${found}`;
   if (sig === lastTracked) return;
   lastTracked = sig;
@@ -20,7 +20,7 @@ export function track(query, found) {
   log.push([now, query, found ? 1 : 0]);
   LS.set('brm_log', log.slice(-600));
   const q = LS.get('brm_evq', []);
-  q.push([now, query, found ? 1 : 0]);
+  q.push([now, query, found ? 1 : 0, gov]);
   LS.set('brm_evq', q.slice(-300));
   clearTimeout(timer); timer = setTimeout(flushPending, 60_000);
   document.dispatchEvent(new CustomEvent('botrm:log'));

@@ -4,7 +4,7 @@ import { authed, json } from '../_shared.js';
 export async function onRequestGet({ request, env }) {
   if (!env.DATA) return json({ error: 'not-configured' }, 501);
   if (!(await authed(request, env))) return json({ error: 'unauthorized' }, 401);
-  return json({ log: (await env.DATA.get('vlog', 'json')) || [] });
+  return json({ log: (await env.DATA.get('vlog', 'json')) || [], backups: (await env.DATA.get('blog', 'json')) || [] });
 }
 
 export async function onRequestPost({ request, env }) {
@@ -17,6 +17,7 @@ export async function onRequestPost({ request, env }) {
   packet.updated = new Date().toISOString();            // يجعلها «الأحدث» ليتحدّث بها المستخدمون
   const out = JSON.stringify(packet);
   await env.DATA.put('packet', out);
+  await env.DATA.put('pmeta', JSON.stringify({ updated: packet.updated }));
   const id = Date.now().toString(36);
   await env.DATA.put(`ver:${id}`, out);
   const log = (await env.DATA.get('vlog', 'json')) || [];

@@ -31,11 +31,19 @@ export function renderConn() {
   el.innerHTML = `<i></i><span>${on ? 'متصل' : 'بدون إنترنت — بيانات محفوظة'}${upd ? ` · البيانات ${ago(upd)}` : ''}</span>`;
 }
 
+let popular = [];
+export async function loadPopular(onPick) {
+  try {
+    const r = await fetch('/api/popular');
+    if (r.ok) { popular = (await r.json()).top || []; renderRecent(onPick); }
+  } catch { /* بدون إنترنت */ }
+}
+
 export function renderRecent(onPick) {
   const seen = recentSearches();
-  $('#recent').innerHTML = seen.length
-    ? `<small>آخر ما بحثت عنه</small><div>${seen.map((id) => `<button class="chip" type="button" data-id="${esc(id)}">${esc(id)}</button>`).join('')}</div>`
-    : '';
+  const chips = (list) => `<div>${list.map((id) => `<button class="chip" type="button" data-id="${esc(id)}">${esc(id)}</button>`).join('')}</div>`;
+  const pop = popular.filter((id) => !seen.includes(id)).slice(0, 8);
+  $('#recent').innerHTML = (seen.length ? `<small>آخر ما بحثت عنه</small>${chips(seen)}` : '') + (pop.length ? `<small style="margin-top:12px">الأكثر بحثاً هذا الأسبوع</small>${chips(pop)}` : '');
   $$('#recent [data-id]').forEach((b) => { b.onclick = () => onPick(b.dataset.id); });
 }
 

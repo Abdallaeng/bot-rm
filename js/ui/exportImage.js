@@ -87,6 +87,10 @@ function drawHeader(ctx, meta, assets, height) {
 
   // شارات الخطورة + العدد
   let x = W - PAD;
+  if (meta.pills) {
+    for (const pl of meta.pills) x -= pill(ctx, pl.label, x, height - 74, { bg: pl.bg, fg: pl.fg, size: 26, h: 48 }) + 12;
+    return;
+  }
   x -= pill(ctx, `${meta.total} موقع`, x, height - 74, { bg: 'rgba(255,255,255,.95)', fg: C.tealDark, size: 26, h: 48 }) + 12;
   for (const s of ['S1', 'S2', 'S3']) {
     if (!meta.sev[s]) continue;
@@ -218,4 +222,51 @@ export async function imagesToPdf(jpegBlobs, pageW = 595) {
   for (let i = 1; i < total; i++) push(`${String(offs[i]).padStart(10, '0')} 00000 n \n`);
   push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
   return new Blob(parts, { type: 'application/pdf' });
+}
+
+/** بطاقة موقع واحد كصورة. site: {id, sev, st, gov, cl, tech, addr, phones:[{label,num}], io} */
+export async function renderSiteImage(site) {
+  const assets = await loadAssets();
+  const HEAD = 330, FOOT = 84, tileH = (lines) => 96 + lines * 36;
+  const tiles = [
+    ['الكلستر', site.cl || 'غير محدد'],
+    ['الفني', site.tech || 'غير محدد'],
+    ['العنوان', site.addr || '—'],
+  ];
+  const cv = document.createElement('canvas'); cv.width = W;
+  const probe = cv.getContext('2d'); probe.font = font(34, 600); probe.direction = 'rtl';
+  const prepared = tiles.map(([label, val]) => ({ label, lines: wrap(probe, val, W - PAD * 2 - 60, 3) }));
+  const phoneH = site.phones.length ? 56 + Math.ceil(site.phones.length / 2) * 70 : 0;
+  const H = HEAD + prepared.reduce((t, x) => t + tileH(x.lines.length) + 16, 0) + (phoneH ? phoneH + 16 : 0) + FOOT + 30;
+  cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H);
+  const pills = [];
+  if (site.sev) pills.push({ label: site.sev, bg: SEV[site.sev] || C.teal, fg: '#fff' });
+  if (site.st) pills.push({ label: site.st, bg: 'rgba(255,255,255,.95)', fg: C.tealDark });
+  drawHeader(ctx, { title: `موقع ${site.id}`, subtitle: site.gov || '', pills }, assets, HEAD);
+  let y = HEAD + 24;
+  for (const t of prepared) {
+    const h = tileH(t.lines.length);
+    ctx.save(); ctx.shadowColor = 'rgba(10,50,66,.14)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+    ctx.fillStyle = C.card; roundRect(ctx, PAD, y, W - PAD * 2, h, 22); ctx.fill(); ctx.restore();
+    ctx.fillStyle = SEV[site.sev] || C.teal; roundRect(ctx, W - PAD - 10, y + 16, 10, h - 32, 5); ctx.fill();
+    text(ctx, t.label, W - PAD - 34, y + 42, { size: 24, weight: 500, color: C.mut });
+    t.lines.forEach((ln, i) => text(ctx, ln, W - PAD - 34, y + 86 + i * 40, { size: 34, weight: 600, color: C.ink }));
+    y += h + 16;
+  }
+  if (phoneH) {
+    ctx.save(); ctx.shadowColor = 'rgba(10,50,66,.14)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 4;
+    ctx.fillStyle = C.card; roundRect(ctx, PAD, y, W - PAD * 2, phoneH, 22); ctx.fill(); ctx.restore();
+    text(ctx, 'أرقام الاتصال', W - PAD - 34, y + 42, { size: 24, weight: 500, color: C.mut });
+    site.phones.forEach((p, i) => {
+      const col = i % 2, row = Math.floor(i / 2);
+      const x = col ? PAD + 34 : W / 2 + 10;
+      text(ctx, `${p.num}`, x, y + 100 + row * 70, { size: 34, weight: 700, color: C.teal, align: 'left', dir: 'ltr' });
+      text(ctx, p.label, col ? W / 2 - 30 : W - PAD - 34, y + 100 + row * 70, { size: 22, weight: 500, color: C.mut, align: col ? 'right' : 'right' });
+    });
+    y += phoneH + 16;
+  }
+  drawFooter(ctx, y + 4, 1, 1, { date: new Date().toLocaleDateString('en-GB') });
+  return [await new Promise((res) => cv.toBlob(res, 'image/png'))];
 }

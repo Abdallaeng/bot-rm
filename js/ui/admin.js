@@ -68,6 +68,14 @@ async function loadStats(range) {
   return res.json();
 }
 
+/** خريطة حرارية: الأيام × ساعات اليوم */
+function heatmap(days) {
+  const max = Math.max(1, ...days.flatMap((d) => d.h));
+  if (!days.some((d) => d.s)) return '';
+  const rows = days.map((d) => `<div class="hmr"><span>${d.label}</span><div>${d.h.map((n, i) => `<i title="${d.label} ${i}:00 — ${n}" style="--v:${(n / max).toFixed(2)}"></i>`).join('')}</div></div>`).join('');
+  return `<div class="h4">خريطة حرارية: متى يُستخدم التطبيق (الأيام × الساعات)</div><div class="hm">${rows}<div class="hmr hml"><span></span><div><b>0</b><b>6</b><b>12</b><b>18</b><b>23</b></div></div></div>`;
+}
+
 async function tabReports(el) {
   const range = Number(LS.get('brm_range', 14)) || 14;
   el.innerHTML = '<div class="skel h"></div><div class="skel"></div><div class="skel"></div><div class="skel h"></div>';
@@ -98,6 +106,7 @@ async function tabReports(el) {
   const top = st ? merge(days.map((d) => d.top)).slice(0, 10) : Object.entries(localLog.reduce((a, l) => { if (l[2]) a[l[1]] = (a[l[1]] || 0) + 1; return a; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 10);
   const miss = st ? merge(days.map((d) => d.miss)).slice(0, 10) : [];
   const recent = st ? st.recent.slice(0, 15) : localLog.slice().reverse().slice(0, 15).map((l) => [l[0], l[1], l[2], 'هذا']);
+  const govDemand = st ? merge(days.map((d) => d.gov)).map(([g, n]) => [govName(g) || g, n]).slice(0, 8) : [];
   const gv = {}; state.rows.forEach((r) => { const g = govName(r.gov) || 'غير محدد'; gv[g] = (gv[g] || 0) + 1; });
   const gvl = Object.entries(gv).sort((a, b) => b[1] - a[1]);
   const delta = y.s ? Math.round((today.s - y.s) / y.s * 100) : 0;
@@ -116,6 +125,8 @@ async function tabReports(el) {
     <div class="h4">عدد عمليات البحث يومياً <span class="lg"><i></i>غير موجود</span></div>
     <div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="عدد عمليات البحث اليومية">${chart}</svg></div>
     ${st ? `<div class="h4">ساعات الذروة (بتوقيت بغداد) ${hours[peak] ? `— الأعلى ${peak}:00` : ''}</div><div class="hrs">${hrs}</div><div class="hlab"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>` : ''}
+    ${st ? heatmap(days) : ''}
+    ${govDemand.length ? `<div class="h4">المحافظات الأكثر طلباً (من مواقع وُجدت)</div>${bars(govDemand, govDemand[0][1])}` : ''}
     ${top.length ? `<div class="h4">الأكثر بحثاً ${st ? '(كل المستخدمين)' : '(هذا الجهاز)'}</div>${bars(top, top[0][1], true)}` : ''}
     ${miss.length ? `<div class="h4">بحث بلا نتيجة — مواقع مطلوبة وغير موجودة</div>${bars(miss, miss[0][1], true)}` : ''}
     <div class="h4">توزيع المواقع حسب المحافظة</div>${bars(gvl, gvl[0]?.[1] || 1)}
@@ -139,8 +150,11 @@ function tabUpdate(el) {
   el.innerHTML = `<div class="note">ارفع ملف الإكسل الجديد (نفس الشكل: ورقة <b>الجدول العام</b>). سيتم فحصه ومقارنته بالبيانات الحالية قبل النشر.</div>
     <label class="drop" id="dz"><input type="file" id="fi" accept=".xlsx,.xlsm,.xls" hidden><b>اضغط لاختيار الملف أو اسحبه هنا</b>Excel (.xlsx)</label>
     <div id="prev"></div>
+    <div class="h4">✏️ تعديل موقع واحد</div>
+    <form class="row" id="edq" autocomplete="off"><input class="inp ltr" id="edid" inputmode="numeric" placeholder="رقم الموقع" style="min-width:120px"><button class="btn" type="submit">${ICONS.search} فتح</button></form><div id="edform"></div>
     <div class="h4">🕘 سجل النسخ المنشورة</div><div id="vers"><div class="note">جارٍ التحميل…</div></div>`;
   loadVersions();
+  $('#edq').onsubmit = (e) => { e.preventDefault(); editSite($('#edid').value.trim()); };
   const fi = $('#fi'), dz = $('#dz');
   fi.onchange = () => fi.files[0] && handleFile(fi.files[0]);
   ['dragover', 'dragenter'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('on'); }));
@@ -148,19 +162,44 @@ function tabUpdate(el) {
   dz.addEventListener('drop', e => e.dataTransfer.files[0] && handleFile(e.dataTransfer.files[0]));
   if (staged) showStaged();
 }
+const SEVS = ['', 'S1', 'S2', 'S3'];
+function editSite(id) {
+  const box = $('#edform'), r = state.byId.get(id) || state.byId.get(String(parseInt(id, 10)));
+  if (!r) { box.innerHTML = '<div class="note warn">لا يوجد موقع بهذا الرقم.</div>'; return; }
+  const f = (k, label, ltr) => `<div><label>${label}</label><input class="inp${ltr ? ' ltr' : ''}" data-k="${k}" value="${esc(r[k] || '')}"></div>`;
+  box.innerHTML = `<div class="note">تعديل الموقع <b class="en">${esc(r.id)}</b>. التعديل يُنشر لكل المستخدمين ويُسجَّل في سجل النسخ. <br><small>تنبيه: رفع ملف إكسل جديد لاحقاً يستبدل هذه التعديلات، فعدّلها في الإكسل أيضاً.</small></div>
+    <div class="form" id="edf">${f('nm', 'العنوان')}${f('cl', 'الكلستر')}${f('mn', 'اسم الفني')}${f('mp', 'رقم الفني (الهاتف)', 1)}
+    <div><label>الخطورة</label><select class="inp" data-k="sev">${SEVS.map((v) => `<option value="${v}"${(r.sev || '') === v ? ' selected' : ''}>${v || 'غير محدد'}</option>`).join('')}</select></div>
+    <button class="btn pri" id="edsave" type="button" style="height:46px">${ICONS.save} حفظ ونشر للجميع</button><div class="err" id="eder"></div></div>`;
+  $('#edsave').onclick = async () => {
+    const b = $('#edsave'); b.disabled = true; $('#eder').textContent = '';
+    try {
+      const changes = {}; box.querySelectorAll('[data-k]').forEach((i) => { if (String(r[i.dataset.k] || '') !== i.value.trim()) changes[i.dataset.k] = i.value.trim(); });
+      if (!Object.keys(changes).length) throw new Error('لم تغيّر أي حقل.');
+      const rows = state.rows.map((x) => { const o = { ...x }; for (const k of Object.keys(o)) if (k.startsWith('_')) delete o[k]; return o.id === r.id ? { ...o, ...changes } : o; });
+      const packet = await Core.seal(rows, '');
+      await publishToAll(packet, { add: 0, chg: 1, rem: 0, name: `تعديل موقع ${r.id}` });
+      setRows(rows, packet);
+      document.dispatchEvent(new CustomEvent('botrm:data'));
+      toast('تم حفظ التعديل ونشره'); box.innerHTML = '<div class="note ok">✅ تم حفظ التعديل ونشره لكل المستخدمين.</div>'; loadVersions();
+    } catch (e) { $('#eder').textContent = '❌ ' + (e.message || e); b.disabled = false; }
+  };
+}
+
 async function loadVersions() {
   const box = $('#vers'); if (!box) return;
-  let log = [];
+  let log = [], backups = [];
   try {
     const r = await api('/api/versions');
     if (!r.ok) { box.innerHTML = `<div class="muted">${r.status === 501 ? 'غير متاح: KV غير مربوط.' : 'تعذّر تحميل السجل.'}</div>`; return; }
-    log = (await r.json()).log;
+    const j = await r.json(); log = j.log; backups = j.backups || [];
   } catch { box.innerHTML = '<div class="muted">تعذّر الاتصال.</div>'; return; }
   if (!$('#vers')) return;
-  box.innerHTML = log.length ? log.map((v, i) => `<div class="alr ${i === 0 ? 'ok' : ''}"><span class="ai">${v.restored ? '↩️' : '📦'}</span><div style="flex:1"><b>${esc(v.name || 'نسخة')} ${i === 0 ? '<small>(الحالية)</small>' : ''}</b>
+  const bk = backups.length ? `<div class="h4">🛟 نسخ احتياطية يومية (آخر ${backups.length})</div>${backups.map((v) => `<div class="alr"><span class="ai">🛟</span><div style="flex:1"><b>${new Date(v.ts).toLocaleDateString('en-GB')}</b><span>${v.count} موقع</span><br><button class="btn" data-restore="${esc(v.id)}" type="button">↩️ استعادة هذه النسخة</button></div></div>`).join('')}` : '';
+  box.innerHTML = (log.length ? log.map((v, i) => `<div class="alr ${i === 0 ? 'ok' : ''}"><span class="ai">${v.restored ? '↩️' : '📦'}</span><div style="flex:1"><b>${esc(v.name || 'نسخة')} ${i === 0 ? '<small>(الحالية)</small>' : ''}</b>
       <span>${new Date(v.ts).toLocaleString('en-GB', { hour12: false })} · ${v.count} موقع${v.add || v.chg || v.rem ? ` · +${v.add} ~${v.chg} −${v.rem}` : ''}</span>
       ${i ? `<br><button class="btn" data-restore="${esc(v.id)}" type="button">↩️ تراجع لهذه النسخة</button>` : ''}</div></div>`).join('')
-    : '<div class="muted">لا توجد نسخ بعد. تُسجَّل كل عملية نشر هنا مع إمكانية التراجع.</div>';
+    : '<div class="muted">لا توجد نسخ بعد. تُسجَّل كل عملية نشر هنا مع إمكانية التراجع.</div>') + bk;
   box.querySelectorAll('[data-restore]').forEach((b) => b.onclick = async () => {
     if (!confirm('سيتم استبدال البيانات المنشورة لكل المستخدمين بهذه النسخة. متابعة؟')) return;
     b.disabled = true;
@@ -204,7 +243,7 @@ async function handleFile(f) {
 async function publishToAll(packet, meta) {
   let res;
   try {
-    res = await api('/api/publish', { method: 'POST', headers: { 'x-meta': JSON.stringify(meta) }, body: JSON.stringify(packet) });
+    res = await api('/api/publish', { method: 'POST', headers: { 'x-meta': encodeURIComponent(JSON.stringify(meta)) }, body: JSON.stringify(packet) });
   } catch { throw new Error('تعذّر الاتصال بالخادم. تأكد من الإنترنت.'); }
   if (res.ok) return;
   const { error } = await res.json().catch(() => ({}));

@@ -79,3 +79,9 @@ details{margin-bottom:10px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .tab{font-size:12.5px;padding:10px 7px;display:flex;align-items:center;justify-content:center;gap:4px}
 .tab .ic{width:15px;height:15px}
+
+.hm{display:grid;gap:3px;direction:ltr}
+.hmr{display:grid;grid-template-columns:44px 1fr;gap:6px;align-items:center;font-size:10.5px;color:var(--mut)}
+.hmr>div{display:grid;grid-template-columns:repeat(24,1fr);gap:2px}
+.hmr i{display:block;aspect-ratio:1;border-radius:3px;background:color-mix(in srgb,var(--acc) calc(var(--v)*100%),var(--surf2));min-height:9px}
+.hml>div{display:flex;justify-content:space-between}.hml b{font-weight:500}

@@ -9,6 +9,8 @@ const ICON = {
   whatsapp: svg('<path d="M3 21l1.7-5A9 9 0 1 1 8 19.3z"/><path d="M9 10c0 3 2 5 5 5l1.5-1.5-2-1-1 .8c-1-.4-1.8-1.2-2.2-2.2l.8-1-1-2z"/>'),
   map: svg('<path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>'),
   share: svg('<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/>'),
+  image: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-8 8"/>'),
+  print: svg('<path d="M7 9V3h10v6M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><rect x="7" y="14" width="10" height="7" rx="1"/>'),
   copy: svg('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/>'),
   cluster: svg('<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>'),
   tech: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>'),
@@ -71,6 +73,8 @@ export function renderCard(r) {
       <div><div class="id">رقم الموقع</div><div class="id-n">${esc(r.id)}</div><div class="badges">${badges}</div></div>
       <div class="acts">
         ${hasGeo ? `<a class="btn pri icon" href="${mapUrl(r)}" target="_blank" rel="noopener" aria-label="فتح الخريطة" title="الخريطة">${ICON.map}</a>` : ''}
+        <button class="btn icon" id="imgBtn" type="button" aria-label="مشاركة كصورة" title="صورة للواتساب">${ICON.image}</button>
+        <button class="btn icon" id="printBtn" type="button" aria-label="طباعة" title="طباعة">${ICON.print}</button>
         <button class="btn icon" id="shareBtn" type="button" aria-label="مشاركة" title="مشاركة">${ICON.share}</button>
         <button class="btn icon" id="copyBtn" type="button" aria-label="نسخ" title="نسخ">${ICON.copy}</button>
       </div>
@@ -106,7 +110,33 @@ export async function shareSite(r) {
   copyText(text);
 }
 
+/** بطاقة الموقع كصورة جاهزة للواتساب */
+async function shareAsImage(r) {
+  const btn = document.getElementById('imgBtn');
+  btn.disabled = true;
+  try {
+    const [ex, { previewImages }] = await Promise.all([import('./exportImage.js'), import('./preview.js')]);
+    const site = {
+      id: r.id, sev: r.sev, st: r.st, gov: govName(r.gov), cl: r.cl, tech: r.mn, addr: r.nm,
+      phones: collectNumbers(r).slice(0, 6),
+    };
+    const blobs = await ex.renderSiteImage(site);
+    previewImages(ex, blobs, `موقع_${r.id}`, plainText(r));
+  } catch (e) { console.error(e); alert('تعذّر إنشاء الصورة'); } finally { btn.disabled = false; }
+}
+
+let printHooked = false;
+function hookPrint() {
+  if (printHooked) return; printHooked = true;
+  let opened = [];
+  window.addEventListener('beforeprint', () => { opened = [...document.querySelectorAll('details.more:not([open])')]; opened.forEach((d) => { d.open = true; }); });
+  window.addEventListener('afterprint', () => { opened.forEach((d) => { d.open = false; }); opened = []; });
+}
+
 export function wireCard(r) {
+  hookPrint();
+  document.getElementById('imgBtn')?.addEventListener('click', () => shareAsImage(r));
+  document.getElementById('printBtn')?.addEventListener('click', () => window.print());
   document.getElementById('shareBtn')?.addEventListener('click', () => shareSite(r));
   document.getElementById('copyBtn')?.addEventListener('click', () => copyText(plainText(r)));
 }

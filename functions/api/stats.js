@@ -15,7 +15,7 @@ export async function onRequestGet({ request, env }) {
   return json({
     days: keys.map((d, i) => {
       const a = aggs[i];
-      return { day: d, s: a?.s || 0, m: a?.m || 0, u: a ? Object.keys(a.u).length : 0, h: a?.h || Array(24).fill(0), top: top(a?.top), miss: top(a?.miss) };
+      return { day: d, s: a?.s || 0, m: a?.m || 0, u: a ? Object.keys(a.u).length : 0, h: a?.h || Array(24).fill(0), top: top(a?.top), miss: top(a?.miss), gov: top(a?.gov) };
     }),
     recent: recent || [],
     broadcast: bc,

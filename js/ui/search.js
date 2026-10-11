@@ -6,7 +6,8 @@ import { state } from '../data/store.js';
 import { track } from '../data/analytics.js';
 import { renderCard, wireCard } from './card.js';
 import { pingSite } from './effects.js';
-import { renderRecent } from './home.js';
+import { renderRecent, loadPopular } from './home.js';
+import { setNavList, navBar, initSwipe } from './swipe.js';
 
 const COMMIT_DELAY = 700;      // مهلة الصمت قبل اعتبار البحث نهائياً
 let commitTimer = null;
@@ -51,7 +52,7 @@ function listItem(r) {
 
 function wireLinks() {
   $$('#out [data-id]').forEach((b) => {
-    b.onclick = () => { setQuery(b.dataset.id); dismissKeyboard(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    b.onclick = () => { if (b.classList.contains('li')) setNavList($$('#out .li').map((x) => x.dataset.id)); setQuery(b.dataset.id); dismissKeyboard(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   });
 }
 
@@ -62,7 +63,7 @@ function showId(raw, out) {
     .sort((x, y) => x.id.length - y.id.length || x.id - y.id)
     .slice(0, 8);
   if (hit) {
-    out.innerHTML = renderCard(hit) + similarChips(similar);
+    out.innerHTML = renderCard(hit) + navBar(hit.id) + similarChips(similar);
     wireCard(hit);
     if (shownId !== hit.id) { shownId = hit.id; pingSite(hit.sev); }
   } else if (similar.length) {
@@ -73,7 +74,7 @@ function showId(raw, out) {
     out.innerHTML = notFound(`لا يوجد موقع بالرقم ${esc(raw)}`, 'تأكد من الرقم وأعد المحاولة.',
       near.length ? `<small>أقرب المواقع رقماً</small><div class="chips">${near.map((r) => `<button class="chip" type="button" data-id="${esc(r.id)}">${esc(r.id)}</button>`).join('')}</div>` : '');
   }
-  return { found: Boolean(hit), exact: Boolean(hit) };
+  return { found: Boolean(hit), exact: Boolean(hit), gov: hit?.gov || '' };
 }
 
 /** مسافة التحرير (Levenshtein) مع قطع مبكر عند تجاوز الحد */
@@ -129,10 +130,10 @@ function search(commit) {
   }
   history.replaceState(null, '', `#${encodeURIComponent(raw)}`);
   const isNum = /^\d+$/.test(raw);
-  const { found, exact } = isNum ? (raw.length >= 7 ? showPhone(raw, out) : showId(raw, out)) : showText(raw, out);
+  const { found, exact, gov = '' } = isNum ? (raw.length >= 7 ? showPhone(raw, out) : showId(raw, out)) : showText(raw, out);
   wireLinks();
   if (commit) {
-    track(raw, found);
+    track(raw, found, gov);
     if (exact) dismissKeyboard();
   }
 }
@@ -146,6 +147,8 @@ export function initSearch() {
   document.addEventListener('botrm:log', () => renderRecent(setQuery));
   document.addEventListener('botrm:data', () => { if (currentQuery()) search(false); });
   renderRecent(setQuery);
+  loadPopular(setQuery);
+  initSwipe((id) => { setQuery(id); window.scrollTo({ top: 0, behavior: 'smooth' }); });
 
   const initial = decodeURIComponent(location.hash.slice(1));
   if (initial) { q.value = initial; onInput(); } else q.focus({ preventScroll: true });

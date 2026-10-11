@@ -7,8 +7,9 @@ import { initSearch } from './ui/search.js';
 import { renderStats, renderFooter, renderConn, initInstallPrompt } from './ui/home.js';
 import { LS } from './lib/storage.js';
 import { initTheme } from './ui/theme.js';
-import { initBrowse } from './ui/browse.js';
+import { initBrowse, openBrowse } from './ui/browse.js';
 import { initHaptics } from './lib/haptic.js';
+import { initSettings } from './ui/settings.js';
 
 function showMessage(title, message, withRetry = true) {
   $('#main').innerHTML = `<div class="gate"><div class="card"><h2>${title}</h2><p>${esc(message)}</p>${withRetry ? '<button class="btn pri" onclick="location.reload()">إعادة المحاولة</button>' : ''}</div></div>`;
@@ -30,6 +31,10 @@ function showCodeGate(packet, wrong = false) {
 let current = null;
 async function refreshInBackground() {
   try {
+    try {                                   // فحص خفيف: لا نحمّل الملف كاملاً إلا عند وجود تحديث
+      const v = await fetch('/api/dataver', { cache: 'no-store' });
+      if (v.ok && current && (await v.json()).updated === current.updated) return;
+    } catch { /* نكمل بالفحص الكامل */ }
     const latest = await fetchPacket(true);
     if (!current || latest.updated === current.updated) return;
     const rows = await unlockPacket(latest);
@@ -56,6 +61,8 @@ async function boot() {
   initSearch();
   initBrowse();
   initBroadcast();
+  const qs = new URLSearchParams(location.search);       // اختصارات الشاشة الرئيسية
+  if (qs.has('browse')) openBrowse(); else if (qs.has('focus')) $('#q').focus();
   if (!navigator.onLine) toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة');
   renderConn();
   document.addEventListener('botrm:data', () => { renderStats(); renderConn(); });
@@ -67,6 +74,7 @@ async function boot() {
 }
 
 initTheme();
+initSettings();
 initHaptics();
 window.addEventListener('offline', () => toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة'));
 window.addEventListener('online', () => { toast('عاد الاتصال'); flushPending(); });

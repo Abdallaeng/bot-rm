@@ -18,9 +18,10 @@ export async function onRequestPost({ request, env }) {
   if (!valid) return json({ error: 'bad-packet' }, 400);
 
   await env.DATA.put('packet', text);
+  await env.DATA.put('pmeta', JSON.stringify({ updated: packet.updated }));
 
   // سجل النسخ: نحتفظ بآخر 8 نسخ كاملة للتراجع عند الخطأ
-  let meta = {}; try { meta = JSON.parse(request.headers.get('x-meta') || '{}'); } catch { /* اختياري */ }
+  let meta = {}; try { meta = JSON.parse(decodeURIComponent(request.headers.get('x-meta') || '%7B%7D')); } catch { /* اختياري */ }
   const id = Date.now().toString(36);
   await env.DATA.put(`ver:${id}`, text);
   const log = (await env.DATA.get('vlog', 'json')) || [];
