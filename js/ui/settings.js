@@ -10,6 +10,7 @@ const ACCENTS = [
   ['orange', 'برتقالي', ['#d5680c', '#ffab5c']],
   ['red', 'أحمر', ['#c8283f', '#ff7a8e']],
 ];
+const TYPES = [['on', 'عادي'], ['fast', 'سريع'], ['off', 'متوقف']];
 const SIZES = [['0.92', 'صغير'], ['1', 'عادي'], ['1.12', 'كبير'], ['1.25', 'كبير جداً']];
 
 export function applyPrefs() {
@@ -29,20 +30,24 @@ function open() {
     <div class="swatches">${ACCENTS.map(([k, label, c]) => `<button type="button" class="sw${k === accent ? ' on' : ''}" data-acc="${k}" aria-label="${label}" title="${label}" style="--c:${c ? c[0] : '#157a94'}"></button>`).join('')}</div>
     <div class="h4">حجم الخط</div>
     <div class="seg szs">${SIZES.map(([v, l]) => `<button type="button" data-z="${v}" class="${v === zoom ? 'on' : ''}">${l}</button>`).join('')}</div>
+    <div class="h4">أنميشن الكتابة</div>
+    <div class="seg tys">${TYPES.map(([v, l]) => `<button type="button" data-t="${v}" class="${v === LS.get('brm_type', 'on') ? 'on' : ''}">${l}</button>`).join('')}</div>
     <button class="btn" data-a="sync" type="button" style="width:100%;margin-top:10px">تحقق من التحديثات الآن</button>
     <div class="pvbar" style="grid-template-columns:1fr 1fr;margin-top:6px"><button class="btn" data-a="reset" type="button">استعادة الافتراضي</button><button class="btn pri" data-a="x" type="button">تم</button></div></div>`;
   const refresh = () => {
     m.querySelectorAll('[data-acc]').forEach((b) => b.classList.toggle('on', b.dataset.acc === LS.get('brm_accent', 'teal')));
+    m.querySelectorAll('[data-t]').forEach((b) => b.classList.toggle('on', b.dataset.t === LS.get('brm_type', 'on')));
     m.querySelectorAll('[data-z]').forEach((b) => b.classList.toggle('on', b.dataset.z === LS.get('brm_zoom', '1')));
   };
   m.onclick = (e) => {
     if (e.target === m) return m.remove();
-    const a = e.target.closest('[data-acc]'), z = e.target.closest('[data-z]'), act = e.target.closest('[data-a]')?.dataset.a;
+    const t = e.target.closest('[data-t]'), a = e.target.closest('[data-acc]'), z = e.target.closest('[data-z]'), act = e.target.closest('[data-a]')?.dataset.a;
     if (a) LS.set('brm_accent', a.dataset.acc);
     if (z) LS.set('brm_zoom', z.dataset.z);
+    if (t) LS.set('brm_type', t.dataset.t);
     if (act === 'x') return m.remove();
     if (act === 'sync') { document.dispatchEvent(new CustomEvent('botrm:sync')); e.target.textContent = 'جارٍ التحقق…'; setTimeout(() => { e.target.textContent = 'تم التحقق ✓'; }, 900); return; }
-    if (act === 'reset') { LS.set('brm_accent', 'teal'); LS.set('brm_zoom', '1'); }
+    if (act === 'reset') { LS.set('brm_accent', 'teal'); LS.set('brm_zoom', '1'); LS.set('brm_type', 'on'); }
     applyPrefs(); refresh();
   };
   document.body.appendChild(m);

@@ -56,3 +56,14 @@ mark.hl { padding: 0 2px; margin: 0 -2px; color: inherit; border-radius: 4px; ba
 .tw-c { display: inline-block; width: 0; height: 1.05em; vertical-align: text-bottom; position: relative; pointer-events: none; }
 .tw-c::after { content: ''; position: absolute; inset-block: 0; inset-inline-end: -1px; width: 2px; border-radius: 2px; background: var(--acc, #14b8a6); box-shadow: 0 0 8px var(--acc, #14b8a6); animation: tw-blink .6s steps(2, start) infinite; }
 @keyframes tw-blink { 50% { opacity: .25; } }
+
+/* ===== هيكل التحميل (skeleton): يظهر فقط إن تأخّرت البيانات أكثر من ~0.3 ثانية ===== */
+.skel { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 22px; background: var(--bg2); opacity: 0; animation: skel-in .3s ease .3s forwards; }
+.skel i { display: block; border-radius: 12px; background: linear-gradient(100deg, color-mix(in srgb, var(--mut) 14%, transparent) 30%, color-mix(in srgb, var(--mut) 28%, transparent) 50%, color-mix(in srgb, var(--mut) 14%, transparent) 70%) 100% 0 / 300% 100%; animation: skel-sh 1.4s linear infinite; }
+.skel .s-id { height: 38px; width: 46%; } .skel .s-bd { height: 22px; width: 30%; } .skel .s-t { height: 64px; } .skel .s-t2 { height: 64px; width: 72%; }
+@keyframes skel-in { to { opacity: 1; } } @keyframes skel-sh { to { background-position: 0 0; } }
+
+/* ===== شارة «محدّث» + نبضة الحقل المتغيّر ===== */
+.bd.upd { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 55%, transparent); background: color-mix(in srgb, var(--acc) 12%, transparent); direction: rtl; }
+.chg { animation: chg-pulse 1.8s ease-out .6s 1 both; }
+@keyframes chg-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--acc) 70%, transparent); } 70% { box-shadow: 0 0 0 10px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }

@@ -60,6 +60,7 @@ async function boot() {
   if (!rows) return showCodeGate(packet);
 
   setRows(rows, packet); current = packet;
+  $('#out .skel')?.remove();
   flushPending();
   renderStats();
   renderFooter();

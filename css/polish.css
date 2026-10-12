@@ -80,7 +80,7 @@
 .swatches { display: flex; gap: 12px; flex-wrap: wrap; }
 .sw { width: 40px; height: 40px; border-radius: 50%; background: var(--c); border: 3px solid transparent; box-shadow: 0 0 0 1px var(--line); transition: transform .15s var(--ease); }
 .sw.on { border-color: var(--bg2); box-shadow: 0 0 0 3px var(--c); transform: scale(1.1); }
-.szs { display: flex; width: 100%; } .szs button { flex: 1; }
+.szs, .tys { display: flex; width: 100%; } .szs button, .tys button { flex: 1; }
 .gchip.fl { padding: 5px 12px; }
 
 /* بحث متعدد */

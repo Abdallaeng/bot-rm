@@ -3,6 +3,7 @@ import { esc, copyText } from '../lib/dom.js';
 import { IO, govName } from '../lib/labels.js';
 import { renderMore, FIELD_LABELS } from './fields.js';
 import { formatDate } from '../lib/text.js';
+import { LS } from '../lib/storage.js';
 
 const svg = (paths) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 const ICON = {
@@ -64,8 +65,27 @@ function historyBlock(r) {
   const body = [...byDay.entries()].map(([day, list]) => `<div class="hday"><b class="en">${esc(day)}</b>${list.map(([, k, o, n]) => k === '__new'
     ? '<div class="hrow new">➕ أُضيف الموقع إلى القائمة</div>'
     : `<div class="hrow"><span class="hk">${esc(FIELD_LABELS[k] || k)}</span>${val(o)}<i aria-hidden="true">←</i>${val(n)}</div>`).join('')}</div>`).join('');
-  return `<details class="more hist"><summary><span>سجل التغييرات</span><em>آخر تعديل ${esc(formatDate(new Date(r.ch[0][0]).toISOString()))}</em></summary><div class="more-body">${body}</div></details>`;
+  return `<details class="more hist" data-mem="hist"${openState().hist ? ' open' : ''}><summary><span>سجل التغييرات</span><em>آخر تعديل ${esc(formatDate(new Date(r.ch[0][0]).toISOString()))}</em></summary><div class="more-body">${body}</div></details>`;
 }
+
+
+/* ---------- تحديث حديث (آخر 7 أيام) + تذكّر الأقسام المفتوحة ---------- */
+const FRESH_MS = 7 * 86400e3;
+const freshKeys = (r, now = Date.now()) => new Set((Array.isArray(r.ch) ? r.ch : []).filter((e) => now - e[0] < FRESH_MS && e[1] !== '__new').map((e) => e[1]));
+function freshAge(r, now = Date.now()) {
+  const t = Array.isArray(r.ch) && r.ch[0] ? r.ch[0][0] : 0;
+  if (!t || now - t >= FRESH_MS) return '';
+  const d = Math.floor((now - t) / 86400e3);
+  return d < 1 ? 'محدّث اليوم' : d === 1 ? 'محدّث أمس' : `محدّث منذ ${d} أيام`;
+}
+const OPEN_KEY = 'brm_open';
+const openState = () => LS.get(OPEN_KEY, {}) || {};
+document.addEventListener('toggle', (e) => {          // لا يتصاعد، لذلك نلتقطه في مرحلة الالتقاط
+  const d = e.target;
+  if (!(d instanceof HTMLDetailsElement) || !d.dataset.mem) return;
+  const st = openState(); if (d.open) st[d.dataset.mem] = 1; else delete st[d.dataset.mem];
+  LS.set(OPEN_KEY, st);
+}, true);
 
 /* ---------- مكوّنات ---------- */
 const mapUrl = (r) => `https://www.google.com/maps?q=${r.lat},${r.lon}`;
@@ -78,9 +98,12 @@ export function renderCard(r) {
   const sev = r.sev ? r.sev.toLowerCase() : '';
   const hasGeo = Boolean(r.lat && r.lon);
 
+  const fk = freshKeys(r), chg = (...keys) => (keys.some((k) => fk.has(k)) ? ' chg' : '');
+  const age = freshAge(r);
   const badges = [
-    r.sev && `<span class="bd ${sev}">${esc(r.sev)}</span>`,
-    r.st && `<span class="bd">${esc(r.st)}</span>`,
+    age && `<span class="bd upd" title="آخر تحديث للبيانات">${esc(age)}</span>`,
+    r.sev && `<span class="bd ${sev}${chg('sev')}">${esc(r.sev)}</span>`,
+    r.st && `<span class="bd${chg('st')}">${esc(r.st)}</span>`,
     r.ven && `<span class="bd">${esc(r.ven)}</span>`,
     r.io && `<span class="bd" style="direction:rtl">${esc(IO[r.io] || r.io)}</span>`,
   ].filter(Boolean).join('');
@@ -99,13 +122,13 @@ export function renderCard(r) {
       </div>
     </div>
     <div class="key">
-      ${tile(`k-cl${r.cl ? '' : ' none'}`, ICON.cluster, 'الكلستر', r.cl ? `<b>${esc(r.cl)}</b>` : NONE)}
-      ${tile('k-gov', ICON.map, 'المحافظة', `<b>${esc(govName(r.gov) || '—')}</b>`)}
-      ${tile('k-tech', ICON.tech, 'الفني', r.mn ? `<b>${esc(r.mn)}</b>` : NONE, contactsBlock(r))}
-      ${tile('k-addr', ICON.address, 'العنوان', r.nm ? `<b>${esc(r.nm)}</b>` : NONE)}
+      ${tile(`k-cl${r.cl ? '' : ' none'}${chg('cl')}`, ICON.cluster, 'الكلستر', r.cl ? `<b>${esc(r.cl)}</b>` : NONE)}
+      ${tile(`k-gov${chg('gov')}`, ICON.map, 'المحافظة', `<b>${esc(govName(r.gov) || '—')}</b>`)}
+      ${tile(`k-tech${chg('mn', 'mp')}`, ICON.tech, 'الفني', r.mn ? `<b>${esc(r.mn)}</b>` : NONE, contactsBlock(r))}
+      ${tile(`k-addr${chg('nm')}`, ICON.address, 'العنوان', r.nm ? `<b>${esc(r.nm)}</b>` : NONE)}
     </div>
     ${historyBlock(r)}
-    ${more.count ? `<details class="more"><summary><span>عرض المزيد</span><em>${more.count} حقل من الملف</em></summary><div class="more-body">${more.html}</div></details>` : ''}
+    ${more.count ? `<details class="more" data-mem="more"${openState().more ? ' open' : ''}><summary><span>عرض المزيد</span><em>${more.count} حقل من الملف</em></summary><div class="more-body">${more.html}</div></details>` : ''}
   </article>`;
 }
 
