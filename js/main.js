@@ -11,6 +11,7 @@ import { initTheme } from './ui/theme.js';
 import { initBrowse, openBrowse } from './ui/browse.js';
 import { initHaptics } from './lib/haptic.js';
 import { initSettings } from './ui/settings.js';
+import { initTypewriter } from './ui/typewriter.js';
 import { initMulti } from './ui/multi.js';
 
 function showMessage(title, message, withRetry = true) {
@@ -82,6 +83,7 @@ async function boot() {
 initTheme();
 initSettings();
 initHaptics();
+initTypewriter();
 window.addEventListener('offline', () => toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة'));
 window.addEventListener('online', () => { toast('عاد الاتصال'); flushPending(); });
 $('#adminBtn').addEventListener('click', async () => (await import('./ui/admin.js')).openAdmin());

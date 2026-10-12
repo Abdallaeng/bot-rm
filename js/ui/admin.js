@@ -1,5 +1,6 @@
 /** لوحة الإدارة: نظرة عامة، التقارير، التنبيهات، البث، البيانات، سجل العمليات، الأمان (تُحمَّل عند الضغط على «الإدارة» فقط) */
 import { $, esc, toast } from '../lib/dom.js';
+import { rawRow } from '../data/overrides.js';
 import { LS } from '../lib/storage.js';
 import { govName } from '../lib/labels.js';
 import { CFG, state, setRows, fixSwappedCoords } from '../data/store.js';
@@ -268,7 +269,7 @@ function editSite(id) {
     try {
       const changes = {}; box.querySelectorAll('[data-k]').forEach((i) => { if (String(r[i.dataset.k] || '') !== i.value.trim()) changes[i.dataset.k] = i.value.trim(); });
       if (!Object.keys(changes).length) throw new Error('لم تغيّر أي حقل.');
-      const rows = state.rows.map((x) => { const o = { ...x }; for (const k of Object.keys(o)) if (k.startsWith('_')) delete o[k]; return o.id === r.id ? { ...o, ...changes, ch: editHistory(r, changes) } : o; });
+      const rows = state.rows.map((x) => { const o = rawRow(x); for (const k of Object.keys(o)) if (k.startsWith('_')) delete o[k]; return o.id === r.id ? { ...o, ...changes, ch: editHistory(r, changes) } : o; });
       const packet = await Core.seal(rows, '');
       await publishToAll(packet, { add: 0, chg: 1, rem: 0, name: `تعديل موقع ${r.id}` });
       setRows(rows, packet);
@@ -320,7 +321,7 @@ async function handleFile(f) {
     const r = Core.parseWorkbook(XLSX, wb);
     if (!r.rows.length) throw new Error('لا توجد صفوف صالحة.');
     const flat = (r) => { const o = { ...r, ...(r.x || {}) }; delete o.x; delete o.ch; Object.keys(o).forEach((k) => { if (k.startsWith('_')) delete o[k]; }); return o; };
-    const old = new Map(state.rows.map((x) => [x.id, flat(x)]));
+    const old = new Map(state.rows.map((x) => [x.id, flat(rawRow(x))]));
     let add = 0, chg = 0, same = 0; const seen = new Set(), changes = [], added = [];
     r.rows.forEach((x) => {
       seen.add(x.id);

@@ -50,3 +50,9 @@ mark.hl { padding: 0 2px; margin: 0 -2px; color: inherit; border-radius: 4px; ba
 .impbox .filebtn .btn { width: 100%; justify-content: center; cursor: pointer; }
 .impn { min-height: 20px; margin-bottom: 8px; color: var(--acc); font-weight: 600; font-size: var(--fs-sm); }
 .impbox .pvbar { grid-template-columns: 1fr 1fr; }
+
+/* ===== أنميشن الكتابة (js/ui/typewriter.js) ===== */
+.tw-h { color: transparent !important; -webkit-text-fill-color: transparent; text-shadow: none !important; }
+.tw-c { display: inline-block; width: 0; height: 1.05em; vertical-align: text-bottom; position: relative; pointer-events: none; }
+.tw-c::after { content: ''; position: absolute; inset-block: 0; inset-inline-end: -1px; width: 2px; border-radius: 2px; background: var(--acc, #14b8a6); box-shadow: 0 0 8px var(--acc, #14b8a6); animation: tw-blink .6s steps(2, start) infinite; }
+@keyframes tw-blink { 50% { opacity: .25; } }

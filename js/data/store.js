@@ -1,5 +1,6 @@
 /** مخزن البيانات: التحميل وفك التشفير والفهرسة */
 import { LS } from '../lib/storage.js';
+import { applyOverrides } from './overrides.js';
 import { normalizeArabic } from '../lib/text.js';
 import { govName } from '../lib/labels.js';
 import { idbGet, idbSet } from './idb.js';
@@ -23,6 +24,7 @@ export function setRows(rows, meta = {}) {
   state.byId = new Map();
   for (const row of rows) {
     fixSwappedCoords(row);
+    applyOverrides(row);
     row._s = normalizeArabic([row.nm, row.mn, row.cl, govName(row.gov), row.gov].filter(Boolean).join(' '));
     row._p = String(row.mp || '').replace(/[^\d+]+/g, ' ').trim();   // أرقام الهواتف للبحث
     state.byId.set(row.id, row);
