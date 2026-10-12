@@ -8,13 +8,13 @@ const LEVELS = ['info', 'warn', 'alert'];
 export async function onRequestGet(ctx) {
   const { env } = ctx;
   if (!env.DATA) return json({ b: null });
-  return edgeCached(ctx, '/__bcast', 60, async () => json({ b: await env.DATA.get('broadcast', 'json') }));
+  return edgeCached(ctx, '/__bcast', 20, async () => json({ b: await env.DATA.get('broadcast', 'json') }));
 }
 
 export async function onRequestPost({ request, env }) {
   if (!env.DATA) return json({ error: 'not-configured' }, 501);
   if (!(await authed(request, env))) return json({ error: 'unauthorized' }, 401);
-  forget('broadcast');
+  forget('broadcast'); forget('bcast');
   let body; try { body = await request.json(); } catch { return json({ error: 'bad-json' }, 400); }
 
   if (body.action === 'clear') { await env.DATA.delete('broadcast'); await purgeEdge(request, PURGE); return json({ ok: true }); }

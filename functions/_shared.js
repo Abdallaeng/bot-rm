@@ -17,9 +17,10 @@ const MEM = new Map();
 /** يعيد قيمة محفوظة لمدة ttl ثانية، وإلا ينفّذ fn ويحفظ نتيجتها (حتى null) */
 export async function memo(key, ttl, fn) {
   const hit = MEM.get(key);
-  if (hit && hit.exp > Date.now()) return hit.v;
-  const v = await fn();
+  if (hit && hit.exp > Date.now()) return hit.v;             // نخزّن الوعد نفسه: مئة طلب متزامن = قراءة واحدة
+  const v = Promise.resolve().then(fn);
   MEM.set(key, { v, exp: Date.now() + ttl * 1000 });
+  v.catch(() => MEM.delete(key));
   if (MEM.size > 200) for (const k of MEM.keys()) { if (MEM.get(k).exp < Date.now()) MEM.delete(k); }
   return v;
 }
@@ -67,12 +68,12 @@ export async function purgeEdge(request, paths) {
   if (cache) await Promise.all(paths.map((p) => cache.delete(synthetic(request, p)).catch(() => {})));
 }
 
-/** إصدار البيانات الحالي {stored, fixed}: يُحسب مرة كل دقيقة لكل منطقة بدل كل طلب */
+/** إصدار البيانات الحالي {stored, fixed}: يُحسب مرة كل 20 ثانية لكل منطقة بدل كل طلب */
 export async function getVersion(ctx) {
   const { request, env } = ctx;
-  const res = await edgeCached(ctx, '/__ver', 60, async () => {
+  const res = await edgeCached(ctx, '/__ver', 20, async () => {
     let stored = '', fixed = '';
-    if (env.DATA) { try { stored = String(JSON.parse((await env.DATA.get('pmeta')) || '{}').updated || ''); } catch { /* */ } }
+    if (env.DATA) { try { stored = String(JSON.parse((await memo('pmeta', 5, () => env.DATA.get('pmeta'))) || '{}').updated || ''); } catch { /* */ } }
     try { fixed = String((await (await env.ASSETS.fetch(new URL('/data.json', request.url))).json()).updated || ''); } catch { /* */ }
     return json({ stored, fixed });
   });

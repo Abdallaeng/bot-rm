@@ -1,7 +1,7 @@
 /** نقطة الدخول: تحميل البيانات ثم تشغيل الواجهة */
 import { $, esc, toast } from './lib/dom.js';
 import { state, fetchPacket, unlockPacket, setRows, storedPacket } from './data/store.js';
-import { checkSync } from './data/sync.js';
+import { checkSync, startSyncLoop } from './data/sync.js';
 import { flushPending } from './data/analytics.js';
 import { initBroadcast, applyBroadcast } from './ui/broadcast.js';
 import { initSearch } from './ui/search.js';
@@ -37,13 +37,14 @@ async function refreshInBackground(force = false) {
     if (!sync) return;
     if ('b' in sync) applyBroadcast(sync.b);
     if (!current || !sync.updated || sync.updated === current.updated) return;
-    const latest = await fetchPacket(true);  // لا يُحمَّل الملف إلا عند وجود إصدار جديد فعلاً
+    await new Promise((r) => setTimeout(r, Math.random() * 2500));   // تأخير عشوائي: لا يصل الجميع في اللحظة نفسها
+    const latest = await fetchPacket(true, sync.updated);            // لا يُحمَّل الملف إلا عند وجود إصدار جديد فعلاً
     if (latest.updated === current.updated) return;
     const rows = await unlockPacket(latest);
     if (!rows) return;
     setRows(rows, latest); current = latest;
     document.dispatchEvent(new CustomEvent('botrm:data'));
-    toast('✅ تم تحديث البيانات تلقائياً');
+    toast('✅ وصلت بيانات جديدة');
   } catch { /* بدون اتصال: نكمل بالنسخة المحفوظة */ }
 }
 
@@ -72,11 +73,10 @@ async function boot() {
   renderConn();
   document.addEventListener('botrm:data', () => { renderStats(); renderConn(); });
   ['online', 'offline'].forEach((ev) => window.addEventListener(ev, renderConn));
-  // تحديث تلقائي: عند الفتح، وعند العودة للتطبيق، وكل 10 دقائق
+  // تحديث تلقائي: عند الفتح، وكل دقيقتين تقريباً أثناء الاستخدام، وعند العودة للتطبيق (انظر data/sync.js)
   refreshInBackground(qs.has('sync'));
   document.addEventListener('botrm:sync', () => refreshInBackground(true));
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { refreshInBackground(); renderConn(); } });
-  setInterval(refreshInBackground, 600_000);
+  startSyncLoop(() => { refreshInBackground(); renderConn(); });
 }
 
 initTheme();

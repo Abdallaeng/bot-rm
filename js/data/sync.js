@@ -1,11 +1,13 @@
-/** مزامنة خفيفة مع الخادم: طلب واحد /api/sync يعيد إصدار البيانات والإعلان معاً.
- *  لا يُرسَل أكثر من مرة كل 5 دقائق (بين التبويبات أيضاً)، والخادم يخدمه من كاش الحافة دون قراءة KV. */
+/** مزامنة خفيفة مع الخادم: طلب واحد /api/sync يعيد إصدار البيانات والإعلان معاً { updated, b }.
+ *  - يعمل فقط والتطبيق ظاهر (لا استهلاك في الخلفية)، كل 80–100 ثانية تقريباً (تأخير عشوائي) حتى لا يصل الجميع في لحظة واحدة.
+ *  - عند العودة للتطبيق أو عودة الاتصال يُفحص فوراً إن مرّت 30 ثانية.
+ *  - الخادم يخدمه من كاش الحافة (20 ثانية) فلا يُقرأ KV مهما كثر المستخدمون. */
 import { LS } from '../lib/storage.js';
 
-const MIN_GAP = 5 * 60e3;
-let inflight = null;
+const MIN_GAP = 30e3, EVERY = 80e3, JITTER = 20e3;
+let inflight = null, timer = 0, handler = null;
 
-/** يعيد { updated, b } أو null إن لم يكن مطلوباً/ممكناً. force=true يتجاوز الحدّ الزمني (لزر «تحديث» اليدوي). */
+/** يعيد { updated, b } أو null إن لم يكن مطلوباً/ممكناً. force=true يتجاوز الحد الزمني (زر «تحقق الآن»). */
 export function checkSync(force = false) {
   if (inflight) return inflight;
   if (!navigator.onLine) return Promise.resolve(null);
@@ -16,4 +18,18 @@ export function checkSync(force = false) {
     .catch(() => null)
     .finally(() => { inflight = null; });
   return inflight;
+}
+
+function schedule() {
+  clearTimeout(timer);
+  if (document.visibilityState !== 'visible') return;          // لا فحص والتطبيق مخفي
+  timer = setTimeout(async () => { await handler(); schedule(); }, EVERY + Math.random() * JITTER);
+}
+
+/** يبدأ الفحص الدوري: fn تُستدعى عند كل دورة (تتولى هي checkSync وتطبيق النتيجة) */
+export function startSyncLoop(fn) {
+  handler = fn;
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { fn(); schedule(); } else clearTimeout(timer); });
+  window.addEventListener('online', () => fn());
+  schedule();
 }

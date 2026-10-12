@@ -13,8 +13,10 @@ import { setNavList, navBar, initSwipe } from './swipe.js';
 
 const COMMIT_DELAY = 700;      // مهلة الصمت قبل اعتبار البحث نهائياً
 let commitTimer = null;
+let shownSig = '';             // بصمة الموقع المعروض: عند تحديث البيانات لا نعيد رسم بطاقة لم تتغيّر
 let shownId = null;            // آخر موقع عُرض (لتشغيل التأثير مرة واحدة)
 
+const sigOf = (r) => JSON.stringify(r, (k, v) => (k.startsWith('_') ? undefined : v));
 const input = () => $('#q');
 const currentQuery = () => latinDigits(input().value).trim();
 
@@ -67,10 +69,12 @@ function showId(raw, out) {
     .sort((x, y) => x.id.length - y.id.length || x.id - y.id)
     .slice(0, 8);
   if (hit) {
+    shownSig = sigOf(hit);
     out.innerHTML = renderCard(hit) + navBar(hit.id) + similarChips(similar);
     wireCard(hit);
     if (shownId !== hit.id) { shownId = hit.id; pingSite(hit.sev); }
   } else if (similar.length) {
+    shownSig = '';
     out.innerHTML = `<div class="suggest-title">مواقع تبدأ بـ <b>${esc(raw)}</b></div><div class="list">${similar.map((r) => listItem(r, [], raw)).join('')}</div>`;
   } else {
     const n = Number(raw);
@@ -149,7 +153,17 @@ export function initSearch() {
   $('#form').addEventListener('submit', (e) => { e.preventDefault(); clearTimeout(commitTimer); search(true); q.blur(); });
   $('#clr').addEventListener('click', () => { q.value = ''; onInput(); q.focus(); });
   document.addEventListener('botrm:log', () => renderRecent(setQuery));
-  document.addEventListener('botrm:data', () => { if (currentQuery()) search(false); });
+  document.addEventListener('botrm:data', () => {
+    const raw = currentQuery();
+    if (!raw) return;
+    if (shownSig && /^\d+$/.test(raw)) {                           // وصل تحديث: البطاقة المفتوحة لا تُرسم من جديد إلا إذا تغيّر موقعها فعلاً
+      const hit = state.byId.get(raw) || state.byId.get(String(parseInt(raw, 10)));
+      if (hit && sigOf(hit) === shownSig) return;
+    }
+    const open = document.querySelector('details.more[open]:not(.hist)') ? true : false;
+    search(false);
+    if (open) document.querySelector('details.more:not(.hist)')?.setAttribute('open', '');
+  });
   renderRecent(setQuery);
   loadPopular(setQuery);
   initSwipe((id) => { setQuery(id); window.scrollTo({ top: 0, behavior: 'smooth' }); });
