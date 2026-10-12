@@ -11,12 +11,15 @@ export async function onRequestGet({ request, env }) {
     memo('broadcast', 30, () => env.DATA.get('broadcast', 'json')),
   ]);
   const recent = aggs.slice(-3).flatMap((a) => a?.r || []).sort((a, b) => b[0] - a[0]).slice(0, 60);
-  const top = (m) => Object.entries(m || {}).sort((a, b) => b[1] - a[1]).slice(0, 20);
+  const top = (m) => Object.entries(m || {}).sort((a, b) => b[1] - a[1]).slice(0, 40);
+  const lastU = aggs.at(-1)?.u || {};
+  const devs = Object.entries(lastU).sort((a, b) => b[1] - a[1]).slice(0, 15);
   return json({
     days: keys.map((d, i) => {
       const a = aggs[i];
       return { day: d, s: a?.s || 0, m: a?.m || 0, u: a ? Object.keys(a.u).length : 0, w: a?.w || 0, h: a?.h || Array(24).fill(0), top: top(a?.top), miss: top(a?.miss), gov: top(a?.gov) };
     }),
+    devs,
     recent,
     broadcast: bc,
     now: Date.now(),

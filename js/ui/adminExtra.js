@@ -2,6 +2,8 @@
 import { esc, toast } from '../lib/dom.js';
 import { govName } from '../lib/labels.js';
 import { state } from '../data/store.js';
+import { ICONS } from '../lib/icons.js';
+import { pgHead, pn, dl, pill, table, rel, fmtDT } from './adminUI.js';
 
 const LV = { info: ['📣', 'معلومة'], warn: ['⚠️', 'تنبيه'], alert: ['🚨', 'عاجل'] };
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'الآن' : m < 60 ? `قبل ${m} دقيقة` : m < 1440 ? `قبل ${Math.round(m / 60)} ساعة` : `قبل ${Math.round(m / 1440)} يوم`; };
@@ -18,8 +20,8 @@ export async function tabBroadcast(el, api, current) {
   } catch { err = explain(0); }
   if (current() !== 'bc' || !el.isConnected) return;
 
-  el.innerHTML = `${err ? `<div class="note warn">⚠️ ${err}</div>` : ''}
-    <div class="note">اكتب رسالة تظهر كشريط في أعلى الموقع لكل المستخدمين عند فتحهم التطبيق (وتتحدّث خلال 5 دقائق لمن هو فاتحه).</div>
+  el.innerHTML = `${pgHead('البث', 'إعلانات تظهر كشريط في أعلى التطبيق لكل المستخدمين')}${err ? `<div class="note warn">⚠️ ${err}</div>` : ''}
+    <div class="note">اكتب رسالة تظهر كشريط في أعلى الموقع لكل المستخدمين عند فتحهم التطبيق (وتصل لمن هو فاتحه خلال دقيقة أو دقيقتين).</div>
     ${cur ? `<div class="h4">الإعلان الحالي ${cur.expires ? `— ينتهي ${new Date(cur.expires).toLocaleString('en-GB', { hour12: false })}` : '— بدون انتهاء'}</div><div class="pvbc ${cur.level}">${LV[cur.level][0]} ${esc(cur.text)}</div><div class="sp"></div><button class="btn" id="bcClear" type="button">🗑️ إيقاف الإعلان الحالي</button><div class="sp"></div>` : ''}
     <div class="h4">إعلان جديد</div>
     <div class="form">
@@ -53,7 +55,7 @@ export async function tabBroadcast(el, api, current) {
 }
 
 /* ---------------- التنبيهات ---------------- */
-function dataChecks() {
+export function dataChecks() {
   const rows = state.rows, out = [];
   const total = rows.length;
   const upd = state.meta.updated ? new Date(state.meta.updated) : null;
@@ -112,7 +114,7 @@ export async function tabAlerts(el, api, current) {
   const order = { bad: 0, warn: 1, ok: 2 };
   items.sort((a, b) => order[a[0]] - order[b[0]]);
   const nBad = items.filter((i) => i[0] === 'bad').length, nWarn = items.filter((i) => i[0] === 'warn').length;
-  el.innerHTML = `<div class="note ${nBad || nWarn ? 'warn' : 'ok'}">${nBad || nWarn ? `🔔 ${nBad} عاجل · ${nWarn} للمراجعة` : '✅ كل شيء سليم'}</div>
+  el.innerHTML = `${pgHead('التنبيهات', 'فحوصات تلقائية لجودة البيانات والاستخدام وملخص يومي للمشاركة')}<div class="note ${nBad || nWarn ? 'warn' : 'ok'}">${nBad || nWarn ? `🔔 ${nBad} عاجل · ${nWarn} للمراجعة` : '✅ كل شيء سليم'}</div>
     ${items.map(([lv, ic, t, d]) => `<div class="alr ${lv}"><span class="ai">${ic}</span><div><b>${esc(t)}</b><span>${esc(d)}</span></div></div>`).join('')}
     <button class="btn" id="alrRe" type="button">🔄 إعادة الفحص</button>
     <div class="h4">📝 ملخص اليوم (للمشاركة)</div><textarea class="inp" id="dgText" readonly>${esc(digest)}</textarea>
@@ -123,14 +125,35 @@ export async function tabAlerts(el, api, current) {
 }
 
 /* ---------------- الأمان ---------------- */
-export function tabSecurity(el, api) {
-  el.innerHTML = `<div class="note">تسجيل الدخول يتم في الخادم، ويُغلق بعد 5 محاولات خاطئة لمدة 15 دقيقة. تنتهي الجلسة بعد 12 ساعة، وتغيير كلمة المرور يُنهي كل الجلسات القديمة.</div>
-    <div class="h4">تغيير كلمة المرور (المستخدم: <span class="en">admin</span>)</div>
-    <form class="form" id="pwf" autocomplete="off">
+export async function tabSecurity(el, api, ctx) {
+  el.innerHTML = '<div class="skel h"></div><div class="skel"></div>';
+  let au = [];
+  try { const r = await api('/api/audit'); if (r.ok) au = (await r.json()).log; } catch { /* */ }
+  if (!el.isConnected) return;
+  const logins = au.filter((a) => a.type === 'login').slice(0, 8);
+  const lastOk = logins.filter((a) => a.ok)[1];                 // الأول هو الدخول الحالي
+  const fails = au.filter((a) => !a.ok && Date.now() - a.t < 86400e3).length;
+  const weak = !!document.querySelector('.astrip');
+
+  const checks = [
+    [!weak, weak ? 'كلمة المرور افتراضية — غيّرها الآن' : 'كلمة المرور مخصّصة'],
+    [fails === 0, fails ? `${fails} محاولة/عملية فاشلة آخر 24 ساعة` : 'لا محاولات فاشلة آخر 24 ساعة'],
+    [true, 'التحقق من الدخول في الخادم (لا في المتصفح)'],
+    [true, 'قفل 15 دقيقة بعد 5 محاولات خاطئة'],
+    [true, 'الجلسات موقّعة وتنتهي بعد 12 ساعة'],
+  ];
+  el.innerHTML = `${pgHead('الأمان', 'حالة حماية لوحة الإدارة وإدارة كلمة المرور والجلسات')}
+    ${pn('حالة الأمان', '', `<ul class="chk">${checks.map(([ok, t]) => `<li class="${ok ? 'ok' : 'bad'}">${ok ? ICONS.check : ICONS.alert}<span>${t}</span></li>`).join('')}</ul>`, { icon: ICONS.shield })}
+    <div class="grid2">
+    ${pn('تغيير كلمة المرور', 'المستخدم: <span class="en">admin</span> · يُنهي كل الجلسات الأخرى', `<form class="form" id="pwf" autocomplete="off">
       <div><label>كلمة المرور الحالية</label><input class="inp ltr" id="pwo" type="password" autocomplete="current-password" required></div>
       <div><label>كلمة المرور الجديدة (8 أحرف على الأقل، أرقام وحروف)</label><input class="inp ltr" id="pwn" type="password" autocomplete="new-password" minlength="8" required></div>
       <div><label>تأكيد كلمة المرور الجديدة</label><input class="inp ltr" id="pwc" type="password" autocomplete="new-password" required></div>
-      <button class="btn pri" style="height:46px">🔐 تغيير كلمة المرور</button><div class="err" id="pwe"></div></form>`;
+      <button class="btn pri" style="height:46px">${ICONS.key} تغيير كلمة المرور</button><div class="err" id="pwe"></div></form>`, { icon: ICONS.key })}
+    ${pn('الجلسات', 'جلسة واحدة نشطة على هذا الجهاز', `${dl([['الجلسة الحالية', ctx.sessionText()], ['آخر دخول سابق', lastOk ? `${rel(lastOk.t)} · ${lastOk.dev || ''} ${lastOk.where ? '· ' + lastOk.where : ''}` : '—']])}
+      <div class="sp"></div><button class="btn" id="outAll" type="button">${ICONS.logout} إنهاء كل الجلسات الآن</button><div class="muted sm" style="margin-top:8px">يخرج كل من سجّل الدخول (بما فيهم أنت) ويلزم الدخول من جديد.</div>`, { icon: ICONS.user })}
+    </div>
+    ${pn('آخر محاولات الدخول', '', table(['الوقت', 'النتيجة', 'الجهاز والمكان'], logins.map((a) => [`<b>${rel(a.t)}</b><small class="muted en">${fmtDT(a.t)}</small>`, a.ok ? pill('ناجح', 'ok') : pill('فاشل', 'bad'), `${a.dev || '—'}<small class="muted">${[a.where, a.ip].filter(Boolean).join(' · ')}</small>`]), { empty: 'لا توجد محاولات مسجّلة.' }), { icon: ICONS.log })}`;
   el.querySelector('#pwf').onsubmit = async (e) => {
     e.preventDefault();
     const err = el.querySelector('#pwe'); err.textContent = '';
@@ -139,6 +162,11 @@ export function tabSecurity(el, api) {
     const r = await api('/api/password', { method: 'POST', body: JSON.stringify({ old: el.querySelector('#pwo').value, next }) });
     const j = await r.json().catch(() => ({}));
     if (r.ok) { toast('تم تغيير كلمة المرور. سجّل الدخول من جديد.'); document.getElementById('dlg').close(); }
-    else err.textContent = j.error === 'wrong-old' ? 'كلمة المرور الحالية غير صحيحة.' : j.error === 'weak' ? `كلمة المرور ضعيفة: ${j.hint}.` : j.error === 'unauthorized' ? 'انتهت الجلسة، ادخل من جديد.' : 'تعذّر التغيير.';
+    else err.textContent = j.error === 'wrong-old' ? 'كلمة المرور الحالية غير صحيحة.' : j.error === 'weak' ? `كلمة المرور ضعيفة: ${j.hint}.` : j.error === 'unauthorized' ? 'انتهت الجلسة، ادخل من جديد.' : 'تعذّر تغيير كلمة المرور.';
+  };
+  el.querySelector('#outAll').onclick = async () => {
+    if (!confirm('سيتم إنهاء كل جلسات الإدارة بما فيها هذه. متابعة؟')) return;
+    const r = await api('/api/logoutall', { method: 'POST' });
+    if (r.ok) { toast('تم إنهاء كل الجلسات'); document.getElementById('dlg').close(); } else toast('تعذّر التنفيذ');
   };
 }

@@ -1,6 +1,6 @@
 /** POST /api/publish — نشر ملف البيانات (المشفّر مسبقاً في المتصفح) لكل المستخدمين.
  *  يتطلب جلسة إدارة (Authorization: Bearer) ويُخزَّن في KV بالاسم DATA. */
-import { authed, json, purgeEdge, forget } from '../_shared.js';
+import { authed, json, purgeEdge, forget, audit } from '../_shared.js';
 
 const MAX_BYTES = 8_000_000;
 
@@ -28,6 +28,8 @@ export async function onRequestPost({ request, env }) {
   log.unshift({ id, ts: Date.now(), count: packet.count, updated: packet.updated, add: +meta.add || 0, chg: +meta.chg || 0, rem: +meta.rem || 0, name: String(meta.name || '').slice(0, 80) });
   for (const old of log.splice(8)) await env.DATA.delete(`ver:${old.id}`);
   await env.DATA.put('vlog', JSON.stringify(log));
+  const nm = String(meta.name || '').slice(0, 80);
+  await audit(env, request, 'publish', `نشر ${packet.count} موقع${nm ? ` — ${nm}` : ''}${meta.add || meta.chg || meta.rem ? ` (+${+meta.add || 0} جديد، ${+meta.chg || 0} معدّل، −${+meta.rem || 0} محذوف)` : ''}`);
   forget('pmeta'); await purgeEdge(request, ['/__ver', '/__sync']);
   return json({ ok: true, count: packet.count, updated: packet.updated });
 }

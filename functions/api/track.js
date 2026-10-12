@@ -41,7 +41,7 @@ export async function onRequestPost({ request, env }) {
       if (x.f) bump(agg.top, x.q, 300); else { agg.m++; bump(agg.miss, x.q, 150); }
       if (x.g) bump((agg.gov ||= {}), x.g, 40);
     });
-    if (Object.keys(agg.u).length < 3000 || agg.u[dev]) agg.u[dev] = 1;
+    if (Object.keys(agg.u).length < 3000 || agg.u[dev]) agg.u[dev] = (agg.u[dev] || 0) + list.length;   // عدد عمليات كل جهاز
     agg.r = list.map((x) => [x.t, x.q, x.f, dev.slice(0, 4)]).concat(agg.r || []).sort((a, b) => b[0] - a[0]).slice(0, MAX_RECENT);
     agg.w = (agg.w || 0) + 1;                                       // عدّاد كتابات التتبّع لهذا اليوم (يظهر في لوحة الإدارة)
     if (day === today && !agg.bk) { agg.bk = 1; await dailyBackup(env); }   // علامة اليوم داخل الوثيقة نفسها: لا مفتاح lastbak

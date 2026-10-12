@@ -1,6 +1,6 @@
 /** GET  /api/broadcast  — الإعلان الحالي للجميع (أو null)
  *  POST /api/broadcast  — للإدارة: { action:'set', text, level:'info|warn|alert', hours? } أو { action:'clear' } */
-import { authed, json, edgeCached, purgeEdge, forget } from '../_shared.js';
+import { authed, json, edgeCached, purgeEdge, forget, audit } from '../_shared.js';
 
 const PURGE = ['/__bcast', '/__sync'];
 const LEVELS = ['info', 'warn', 'alert'];
@@ -17,7 +17,7 @@ export async function onRequestPost({ request, env }) {
   forget('broadcast'); forget('bcast');
   let body; try { body = await request.json(); } catch { return json({ error: 'bad-json' }, 400); }
 
-  if (body.action === 'clear') { await env.DATA.delete('broadcast'); await purgeEdge(request, PURGE); return json({ ok: true }); }
+  if (body.action === 'clear') { await env.DATA.delete('broadcast'); await audit(env, request, 'broadcast', 'إيقاف الإعلان الحالي'); await purgeEdge(request, PURGE); return json({ ok: true }); }
   const text = String(body.text || '').trim().slice(0, 400);
   if (!text) return json({ error: 'empty' }, 400);
   const level = LEVELS.includes(body.level) ? body.level : 'info';
@@ -27,6 +27,7 @@ export async function onRequestPost({ request, env }) {
   const hist = ((await env.DATA.get('bhist', 'json')) || []);
   hist.unshift(b);
   await env.DATA.put('bhist', JSON.stringify(hist.slice(0, 15)));
+  await audit(env, request, 'broadcast', `بث إعلان (${level}${hours ? `، ${hours} ساعة` : ''}): ${text.slice(0, 60)}`);
   await purgeEdge(request, PURGE);
   return json({ ok: true, b });
 }

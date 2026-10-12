@@ -1,5 +1,5 @@
 /** GET /api/versions — سجل النسخ المنشورة.  POST { id } — التراجع إلى نسخة سابقة (للإدارة). */
-import { authed, json, purgeEdge, forget } from '../_shared.js';
+import { authed, json, purgeEdge, forget, audit } from '../_shared.js';
 
 export async function onRequestGet({ request, env }) {
   if (!env.DATA) return json({ error: 'not-configured' }, 501);
@@ -24,6 +24,7 @@ export async function onRequestPost({ request, env }) {
   log.unshift({ id, ts: Date.now(), count: packet.count, updated: packet.updated, add: 0, chg: 0, rem: 0, name: `تراجع إلى نسخة ${body.id}`, restored: true });
   for (const old of log.splice(8)) await env.DATA.delete(`ver:${old.id}`);
   await env.DATA.put('vlog', JSON.stringify(log));
+  await audit(env, request, 'restore', `استعادة نسخة ${String(body.id).slice(0, 20)} (${packet.count} موقع)`);
   forget('pmeta'); await purgeEdge(request, ['/__ver', '/__sync']);
   return json({ ok: true, count: packet.count });
 }

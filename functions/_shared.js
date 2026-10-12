@@ -118,3 +118,26 @@ export function bump(map, key, cap) {
   const keys = Object.keys(map);
   if (keys.length > cap) { keys.sort((a, b) => map[a] - map[b]); delete map[keys[0]]; }
 }
+
+/* ---------- سجل عمليات الإدارة (آخر 200 عملية): الدخول، النشر، التعديل، الاستعادة، البث، الأمان ---------- */
+const MAX_AUDIT = 200;
+const browserOf = (ua = '') => {
+  const b = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'متصفح';
+  const os = /Android/.test(ua) ? 'Android' : /iPhone|iPad|iOS/.test(ua) ? 'iOS' : /Windows/.test(ua) ? 'Windows' : /Mac OS X/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '';
+  return [b, os].filter(Boolean).join(' · ');
+};
+/** يسجّل عملية إدارية: type مفتاح قصير، text وصف عربي. لا يُفشل العملية الأصلية إن تعذّر التسجيل. */
+export async function audit(env, request, type, text, ok = true) {
+  try {
+    const cf = request.cf || {};
+    const entry = {
+      t: Date.now(), type, text: String(text).slice(0, 200), ok,
+      ip: (request.headers.get('cf-connecting-ip') || '').slice(0, 45),
+      where: [cf.city, cf.country].filter(Boolean).join('، '),
+      dev: browserOf(request.headers.get('user-agent') || ''),
+    };
+    const log = (await env.DATA.get('audit', 'json')) || [];
+    log.unshift(entry);
+    await env.DATA.put('audit', JSON.stringify(log.slice(0, MAX_AUDIT)));
+  } catch { /* السجل اختياري */ }
+}

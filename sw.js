@@ -6,9 +6,9 @@ const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const NETWORK_TIMEOUT = 3000;
 const SHELL = [
   './', 'index.html', 'config.js', 'core.js', 'manifest.webmanifest', 'data.json',
-  'css/tokens.css', 'css/base.css', 'css/scene.css', 'css/search.css', 'css/card.css', 'css/browse.css', 'css/admin.css', 'css/polish.css', 'css/extras.css',
+  'css/tokens.css', 'css/base.css', 'css/scene.css', 'css/search.css', 'css/card.css', 'css/browse.css', 'css/admin.css', 'css/polish.css', 'css/extras.css', 'css/admin2.css',
   'js/main.js', 'js/lib/dom.js', 'js/lib/storage.js', 'js/lib/text.js', 'js/lib/labels.js', 'js/lib/icons.js', 'js/lib/haptic.js',
-  'js/data/store.js', 'js/data/analytics.js', 'js/data/idb.js', 'js/data/history.js', 'js/lib/mark.js', 'js/lib/art.js', 'js/data/sync.js', 'js/ui/card.js', 'js/ui/fields.js', 'js/ui/effects.js', 'js/ui/home.js', 'js/ui/search.js', 'js/ui/theme.js', 'js/ui/browse.js', 'js/ui/exportImage.js', 'js/ui/broadcast.js', 'js/ui/swipe.js', 'js/ui/multi.js', 'js/ui/settings.js', 'js/ui/preview.js', 'js/ui/adminExtra.js', 'js/ui/admin.js',
+  'js/data/store.js', 'js/data/analytics.js', 'js/data/idb.js', 'js/data/history.js', 'js/lib/mark.js', 'js/lib/art.js', 'js/data/sync.js', 'js/ui/card.js', 'js/ui/fields.js', 'js/ui/effects.js', 'js/ui/home.js', 'js/ui/search.js', 'js/ui/theme.js', 'js/ui/browse.js', 'js/ui/exportImage.js', 'js/ui/broadcast.js', 'js/ui/swipe.js', 'js/ui/multi.js', 'js/ui/settings.js', 'js/ui/preview.js', 'js/ui/adminExtra.js', 'js/ui/adminUI.js', 'js/ui/adminOverview.js', 'js/ui/admin.js',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/seal.png', 'icons/favicon.png',
 ];
 
