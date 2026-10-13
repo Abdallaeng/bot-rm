@@ -119,7 +119,7 @@
   function isClusterHeader(h) {
     const t = String(h || '').replace(/[^a-z\u0600-\u06FF ]/g, '').trim();
     if (!t) return false;
-    return CL_ALIASES.includes(t) || (/^[a-z]+$/.test(t) && t.length >= 6 && t.length <= 9 && lev(t, 'cluster') <= 2);
+    return CL_ALIASES.includes(t) || t.split(' ').some(w => /^[a-z]+$/.test(w) && w.length >= 6 && w.length <= 9 && lev(w, 'cluster') <= 2);   // Clyster / clyster name / cluster supervisor…
   }
   /** مفتاح مقارنة موحّد لاسم الكلستر: يتجاهل التشكيل والمسافات الزائدة وى/ي وة/ه وأ/إ/آ والحالة */
   function clusterKey(v) {
