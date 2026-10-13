@@ -20,6 +20,13 @@ export async function onRequestPost({ request, env }) {
     .map(([t, q, f, g]) => ({ t: Math.min(now, Math.max(now - 2 * 86400e3, +t || now)), q: clean(q), f: f ? 1 : 0, g: clean(g).slice(0, 24) }))
     .filter((x) => x.q);
   if (!events.length || !dev) return json({ ok: true, n: 0 });
+  // بيانات مرافقة من الجهاز (تُدمج في نفس الكتابة، بلا أي كتابة إضافية): جهاز جديد، تطبيق مثبّت، أداء، عدد طلبات الخادم
+  const extra = {
+    nw: body.nw ? 1 : 0, pw: body.pw ? 1 : 0,
+    rq: Math.min(500, Math.max(0, Math.round(+body.rq || 0))),
+    pf: body.pf && typeof body.pf === 'object' ? { b: Math.min(60000, Math.max(0, Math.round(+body.pf.b || 0))), sn: Math.min(500, Math.max(0, Math.round(+body.pf.sn || 0))), ss: Math.min(500 * 5000, Math.max(0, Math.round(+body.pf.ss || 0))) } : null,
+    br: browserKey(request.headers.get('user-agent') || ''),
+  };
 
   // حدّ المعدّل: دفعة صغيرة بعد دفعة أخيرة قريبة ← نطلب من الجهاز الاحتفاظ بها (لا قراءة ولا كتابة)
   if (events.length < SMALL && now - (seen.get(dev) || 0) < MIN_GAP) {
@@ -43,11 +50,23 @@ export async function onRequestPost({ request, env }) {
     });
     if (Object.keys(agg.u).length < 3000 || agg.u[dev]) agg.u[dev] = (agg.u[dev] || 0) + list.length;   // عدد عمليات كل جهاز
     agg.r = list.map((x) => [x.t, x.q, x.f, dev.slice(0, 4)]).concat(agg.r || []).sort((a, b) => b[0] - a[0]).slice(0, MAX_RECENT);
+    if (day === today) mergeExtra(agg, extra, dev);
     agg.w = (agg.w || 0) + 1;                                       // عدّاد كتابات التتبّع لهذا اليوم (يظهر في لوحة الإدارة)
     if (day === today && !agg.bk) { agg.bk = 1; await dailyBackup(env); }   // علامة اليوم داخل الوثيقة نفسها: لا مفتاح lastbak
     await env.DATA.put(key, JSON.stringify(agg), { expirationTtl: AGG_TTL });
   }
   return json({ ok: true, n: events.length });
+}
+
+const browserKey = (ua) => (/Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /SamsungBrowser/.test(ua) ? 'Samsung' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'أخرى');
+
+/** يدمج بيانات الجهاز المرافقة في وثيقة اليوم: q = طلبات الخادم، nw = أجهزة جديدة، pw = أجهزة مثبّتة، pf = الأداء، br = المتصفحات */
+function mergeExtra(agg, x, dev) {
+  agg.q = (agg.q || 0) + x.rq + 1;                                  // +1 لهذه الدفعة نفسها
+  if (x.nw) agg.nw = (agg.nw || 0) + 1;
+  if (x.pw) { const l = (agg.pw ||= []); if (!l.includes(dev) && l.length < 800) l.push(dev); }
+  if (x.pf) { const p = (agg.pf ||= { bn: 0, bs: 0, sn: 0, ss: 0 }); if (x.pf.b) { p.bn++; p.bs += x.pf.b; } p.sn += x.pf.sn; p.ss += x.pf.ss; }
+  const b = (agg.br ||= {}); b[x.br] = (b[x.br] || 0) + 1;
 }
 
 /** نسخة احتياطية: مرة في اليوم كحد أقصى، ولا تُكتب إلا إذا تغيّرت البيانات منذ آخر نسخة. نحتفظ بآخر 14. */

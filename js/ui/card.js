@@ -51,7 +51,7 @@ function contactsBlock(r) {
   if (!list.length) return '';
   const pills = list.map(({ label, num }) => {
     const tel = `tel:${esc(num.replace(/\s/g, ''))}`;
-    return `<div class="pill"><a class="pn" href="${tel}" aria-label="اتصال ${esc(label)}"><small>${esc(label)}</small><span>${esc(num)}</span></a><a class="mini wa" href="${whatsappUrl(num)}" target="_blank" rel="noopener" aria-label="واتساب ${esc(label)}">${ICON.whatsapp}</a><button class="mini cp" type="button" data-copy="${esc(num.replace(/\s/g, ''))}" aria-label="نسخ رقم ${esc(label)}" title="نسخ الرقم">${ICON.copy}</button></div>`;
+    return `<div class="cpill"><a class="cpn" href="${tel}" aria-label="اتصال ${esc(label)}"><small>${esc(label)}</small><span>${esc(num)}</span></a><a class="mini wa" href="${whatsappUrl(num)}" target="_blank" rel="noopener" aria-label="واتساب ${esc(label)}">${ICON.whatsapp}</a><button class="mini cp" type="button" data-copy="${esc(num.replace(/\s/g, ''))}" aria-label="نسخ رقم ${esc(label)}" title="نسخ الرقم">${ICON.copy}</button></div>`;
   }).join('');
   return `<div class="contacts${list.length > 4 ? ' dense' : ''}">${pills}</div>`;
 }
@@ -182,6 +182,6 @@ export function wireCard(r) {
   document.getElementById('printBtn')?.addEventListener('click', () => window.print());
   document.getElementById('shareBtn')?.addEventListener('click', () => shareSite(r));
   document.getElementById('copyBtn')?.addEventListener('click', () => copyText(plainText(r)));
-  document.querySelectorAll('.pill [data-copy]').forEach((b) => b.addEventListener('click', () => copyText(b.dataset.copy)));
+  document.querySelectorAll('.cpill [data-copy]').forEach((b) => b.addEventListener('click', () => copyText(b.dataset.copy)));
 }
 

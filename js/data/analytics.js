@@ -11,6 +11,12 @@ const device = () => {
   return id;
 };
 
+/* عدّادات مرافقة تُرسل مع الدفعة نفسها (بلا أي طلب أو كتابة إضافية): طلبات الخادم، أداء الفتح والبحث */
+export const countReq = (n = 1) => LS.set('brm_rq', (LS.get('brm_rq', 0) || 0) + n);
+export const perfBoot = (ms) => { const p = LS.get('brm_pf', { b: 0, sn: 0, ss: 0 }); p.b = Math.round(ms); LS.set('brm_pf', p); };
+export const perfSearch = (ms) => { const p = LS.get('brm_pf', { b: 0, sn: 0, ss: 0 }); p.sn++; p.ss += Math.round(ms); LS.set('brm_pf', p); };
+const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
 const BATCH = 25, MAX_AGE = 15 * 60e3;
 let lastTracked = '', timer = 0;
 export function track(query, found, gov = '') {
@@ -39,10 +45,11 @@ export async function flushPending(force = false) {
   sending = true;
   const batch = q.slice(0, 50);
   try {
-    const res = await fetch('/api/track', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ d: device(), e: batch }), keepalive: true });
+    const res = await fetch('/api/track', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ d: device(), e: batch, nw: LS.get('brm_seen', 0) ? 0 : 1, pw: installed() ? 1 : 0, rq: LS.get('brm_rq', 0), pf: LS.get('brm_pf', null) }), keepalive: true });
     if (res.status === 501 || res.status === 404) LS.set('brm_notrack', Date.now() + 3600_000);
     else if (res.status === 429) { const j = await res.json().catch(() => ({})); LS.set('brm_notrack', Date.now() + (Math.min(+j.retry || 240, 900) + 5) * 1000); }
     else if (res.ok) {
+      LS.set('brm_seen', 1); LS.set('brm_rq', 0); LS.del('brm_pf');
       const rest = LS.get('brm_evq', []).filter((x) => !batch.some((b) => b[0] === x[0] && b[1] === x[1]));
       LS.set('brm_evq', rest);
       if (rest.length) { sending = false; return flushPending(); }

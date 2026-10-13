@@ -193,3 +193,72 @@ dialog.adm.login { margin: auto; width: min(420px, calc(100vw - 20px)); height: 
   body.print-admin .pn, body.print-admin .kc { break-inside: avoid; }
   body.print-admin .tbl-wrap { max-height: none; overflow: visible; }
 }
+
+/* ===== مؤشرات حدود الاستهلاك (gauge) ===== */
+.ggs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.pn > .pn-b > .ggs:first-child { margin-top: 0; }
+@media (max-width: 640px) { .ggs { grid-template-columns: minmax(0, 1fr); } }
+.gg { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: var(--surf); display: grid; gap: 6px; }
+.gg-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; } .gg-h b { font-size: 13.5px; }
+.gg-v { display: flex; align-items: baseline; gap: 8px; } .gg-v > b { font-size: 24px; font-variant-numeric: tabular-nums; } .gg-v span { color: var(--mut); font-size: 12.5px; }
+.gg .meter { width: 100%; margin: 0; height: 8px; }
+.gg.bad .meter i { background: var(--s1); }
+.gg small { font-size: 11.5px; line-height: 1.5; }
+
+/* ===== فحص الصحة ===== */
+.hc-sum { display: flex; align-items: center; gap: 8px; font-weight: 700; padding: 10px 12px; border-radius: 12px; margin-bottom: 10px; }
+.hc-sum svg { width: 18px; height: 18px; }
+.hc-sum.ok { color: var(--s3); background: color-mix(in srgb, var(--s3) 11%, transparent); } .hc-sum.bad { color: var(--s1); background: color-mix(in srgb, var(--s1) 10%, transparent); }
+.hc-list { display: grid; gap: 6px; }
+.hc { display: grid; grid-template-columns: 12px minmax(0, 1.3fr) minmax(0, 1.6fr) auto; gap: 10px; align-items: center; padding: 9px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--surf); font-size: 13px; animation: tb-in .3s ease both; }
+.hc .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--s3); } .hc.bad .dot { background: var(--s1); }
+.hc span { color: var(--mut); font-size: 12.5px; } .hc em { font-style: normal; color: var(--mut); font-size: 12px; }
+@media (max-width: 640px) { .hc { grid-template-columns: 12px 1fr auto; } .hc span { grid-column: 2 / -1; } }
+.hc-run { display: flex; align-items: center; gap: 8px; color: var(--mut); padding: 10px 2px; }
+.hc-run .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--acc); animation: pulse 1s infinite; }
+
+/* ===== نموذج التصحيحات ===== */
+.fxf { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; align-items: end; }
+.fxf label { display: grid; gap: 5px; font-size: 12.5px; color: var(--mut); font-weight: 600; } .fxf .fxw { grid-column: span 2; }
+.fxf .inp { width: 100%; }
+.fxo { grid-column: 1 / -1; font-size: 13px; padding: 8px 12px; border-radius: 10px; background: var(--surf2); color: var(--mut); } .fxo b { color: var(--fg, inherit); }
+@media (max-width: 640px) { .fxf .fxw { grid-column: auto; } }
+.sub-t { font-size: 12.5px; color: var(--mut); font-weight: 600; margin-bottom: 8px; }
+
+/* ===== مؤشر «مباشر» ===== */
+.pill.live .dot { animation: none; opacity: .5; }
+.pill.live.on { color: var(--s3); background: color-mix(in srgb, var(--s3) 11%, transparent); border-color: color-mix(in srgb, var(--s3) 40%, transparent); }
+.pill.live.on .dot { opacity: 1; animation: pulse 1.6s infinite; }
+
+/* ===== هياكل التحميل (skeleton) بنفس شكل الصفحة ===== */
+.sk-pg { display: grid; gap: 14px; }
+.sk { display: block; border-radius: 9px; height: 14px; background: linear-gradient(100deg, color-mix(in srgb, var(--mut) 12%, transparent) 30%, color-mix(in srgb, var(--mut) 24%, transparent) 50%, color-mix(in srgb, var(--mut) 12%, transparent) 70%) 100% 0 / 300% 100%; animation: hskel-sh 1.3s linear infinite; }
+.sk.s { height: 10px; } .sk.sq { width: 36px; height: 36px; border-radius: 11px; flex: none; } .sk.blk { height: 120px; border-radius: 12px; } .sk.row { height: 34px; border-radius: 10px; }
+.sk.w40 { width: 40%; } .sk.w50 { width: 50%; } .sk.w65 { width: 65%; } .sk.w75 { width: 75%; }
+.sk-h { display: grid; gap: 9px; padding-top: 4px; } .sk-h .sk:first-child { height: 22px; }
+.sk-k { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.sk-c, .sk-p { display: flex; gap: 11px; align-items: center; padding: 13px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surf); } .sk-c > div { flex: 1; display: grid; gap: 8px; }
+.sk-p { display: grid; gap: 12px; } .sk-g { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 899px) { .sk-g { grid-template-columns: minmax(0, 1fr); } }
+
+/* ===== انتقال ناعم بين التبويبات + دخول متدرّج للمحتوى ===== */
+@keyframes tb-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.amain > * { animation: tb-in .34s cubic-bezier(.2, .8, .2, 1) both; }
+.amain > :nth-child(2) { animation-delay: .04s; } .amain > :nth-child(3) { animation-delay: .08s; } .amain > :nth-child(4) { animation-delay: .12s; }
+.amain > :nth-child(5) { animation-delay: .16s; } .amain > :nth-child(6) { animation-delay: .2s; } .amain > :nth-child(n+7) { animation-delay: .24s; }
+
+/* ===== الرسوم تنمو عند الظهور (مرة واحدة عند ظهور الصفحة) ===== */
+@keyframes grow-y { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes pop { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: none; } }
+.pn .chart svg g rect { transform-box: fill-box; transform-origin: 50% 100%; animation: grow-y .75s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 35ms); }
+.pn .chart svg g text.val { animation: tb-in .4s ease both; animation-delay: calc(.5s + var(--i, 0) * 35ms); }
+.hrs i { transform-origin: 50% 100%; animation: grow-y .6s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 22ms); }
+.bar i, .meter i { transform-origin: 100% 50%; animation: grow-x .8s cubic-bezier(.2, .8, .2, 1) both; }
+.spk polyline { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .9s ease .2s forwards; }
+.spk circle { opacity: 0; animation: pop .3s ease 1s forwards; }
+.hm .hmr i { animation: tb-in .5s ease both; animation-delay: .1s; }
+@media (prefers-reduced-motion: reduce) { .spk polyline { stroke-dashoffset: 0; } .spk circle { opacity: 1; } }
+.gg-v { flex-wrap: wrap; } .gg-p { margin-inline-start: auto; font-weight: 700; color: var(--mut); }
+.kcs.in { margin-bottom: 14px; }

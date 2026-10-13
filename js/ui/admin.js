@@ -7,12 +7,13 @@ import { CFG, state, setRows, fixSwappedCoords } from '../data/store.js';
 import { ymd } from '../data/analytics.js';
 import { tabBroadcast, tabAlerts, tabSecurity } from './adminExtra.js';
 import { tabOverview, tabAudit } from './adminOverview.js';
+import { tabFix, downloadExcel } from './adminTools.js';
 import { FIELD_LABELS } from './fields.js';
 import { applyHistory, editHistory } from '../data/history.js';
 import { ICONS } from '../lib/icons.js';
 import { emptyState } from '../lib/art.js';
 import { countUp } from './effects.js';
-import { pgHead, pn, kpi, pill, table, spark, bars, merge, dayChart, hoursChart, fmtDay, fmtDT, num, pct } from './adminUI.js';
+import { pgHead, pn, kpi, pill, table, spark, bars, merge, dayChart, hoursChart, fmtDay, fmtDT, rel, num, pct, gauge, skeleton } from './adminUI.js';
 
 const Core = window.BotCore;
 
@@ -66,7 +67,7 @@ function login(err) {
 }
 
 /* ---------------- الهيكل: رأس + قائمة جانبية + محتوى ---------------- */
-const NAV = [['ov', 'نظرة عامة', 'home'], ['rep', 'التقارير', 'chart'], ['alr', 'التنبيهات', 'bell'], ['bc', 'البث', 'megaphone'], ['upd', 'البيانات', 'upload'], ['log', 'سجل العمليات', 'log'], ['sec', 'الأمان', 'shield']];
+const NAV = [['ov', 'نظرة عامة', 'home'], ['rep', 'التقارير', 'chart'], ['alr', 'التنبيهات', 'bell'], ['bc', 'البث', 'megaphone'], ['upd', 'البيانات', 'upload'], ['fix', 'التصحيحات', 'edit'], ['log', 'سجل العمليات', 'log'], ['sec', 'الأمان', 'shield']];
 let tab = LS.get('brm_admtab', 'ov');
 if (!NAV.some((n) => n[0] === tab)) tab = 'ov';
 
@@ -74,6 +75,14 @@ const ctx = {
   api, tab: () => tab, sessionText,
   go: (t) => { tab = t; LS.set('brm_admtab', t); showTab(); },
   status: (ok) => { const p = $('#stConn'); if (p) { p.className = `pill ${ok ? 'ok' : 'bad'}`; p.innerHTML = `<i class="dot"></i>${ok ? 'متصل بالخادم' : 'غير متصل بالخادم'}`; } },
+  live: (lv) => {                                          // مؤشر «مباشر»: من آخر دفعات الإحصاء (تأخير حتى 15 دقيقة)
+    const p = $('#stLive'); if (!p || !lv) return;
+    const mins = lv.last ? (Date.now() - lv.last) / 60000 : Infinity;
+    p.hidden = false;
+    p.className = `pill live${mins < 15 ? ' on' : ''}`;
+    p.title = 'مبني على دفعات الإحصاء التي ترسلها الأجهزة (قد يتأخر حتى 15 دقيقة)';
+    p.innerHTML = mins < 15 ? `<i class="dot"></i>مباشر · ${lv.n || 1} ${lv.n > 2 ? 'أجهزة' : 'جهاز'} نشط` : `<i class="dot"></i>${lv.last ? `آخر نشاط ${rel(lv.last)}` : 'لا نشاط اليوم'}`;
+  },
   badge: (t, n, tone = 'warn') => { const b = $(`.ni[data-t="${t}"] .nb`); if (!b) return; b.hidden = !n; b.textContent = n; b.className = `nb ${tone}`; },
 };
 
@@ -81,7 +90,7 @@ function panel() {
   dlg.className = 'adm console';
   dlg.innerHTML = `<header class="ah">
       <div class="ah-brand"><img src="icons/seal.png" width="40" height="40" alt=""><div><b>لوحة الإدارة</b><small>Bot Rm · شركة ربوع المعالي</small></div></div>
-      <div class="ah-pills"><span class="pill" id="stConn"><i class="dot"></i>جارٍ الاتصال…</span><span class="pill" id="stSess">${ICONS.clock}<span>${sessionText()}</span></span></div>
+      <div class="ah-pills"><span class="pill" id="stConn"><i class="dot"></i>جارٍ الاتصال…</span><span class="pill live" id="stLive" hidden></span><span class="pill" id="stSess">${ICONS.clock}<span>${sessionText()}</span></span></div>
       <div class="ah-act"><button class="btn sm" id="lo" type="button">${ICONS.logout}<span>خروج</span></button><button class="btn sm icon" id="ahX" type="button" aria-label="إغلاق">${ICONS.close}</button></div>
     </header>
     ${weakPw ? `<div class="astrip warn" role="alert">${ICONS.alert}<span><span class="long">كلمة مرور الإدارة ما زالت <b>الافتراضية</b> — أي شخص يعرفها يستطيع نشر البيانات وإرسال الإعلانات.</span><span class="short">كلمة المرور <b>افتراضية</b> — غيّرها الآن</span></span><button class="btn sm" id="weakGo" type="button">غيّرها الآن</button></div>` : ''}
@@ -105,7 +114,7 @@ function showTab() {
   dlg.querySelectorAll('.ni').forEach((b) => { const on = b.dataset.t === tab; b.classList.toggle('on', on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   const main = $('#tb');
   main.scrollTop = 0;
-  ({ ov: (el) => tabOverview(el, ctx), rep: tabReports, alr: (el) => tabAlerts(el, api, () => tab), bc: (el) => tabBroadcast(el, api, () => tab), upd: tabUpdate, log: (el) => tabAudit(el, ctx), sec: (el) => tabSecurity(el, api, ctx) })[tab](main);
+  ({ ov: (el) => tabOverview(el, ctx), rep: tabReports, alr: (el) => tabAlerts(el, api, () => tab), bc: (el) => tabBroadcast(el, api, () => tab), upd: tabUpdate, fix: (el) => tabFix(el, ctx), log: (el) => tabAudit(el, ctx), sec: (el) => tabSecurity(el, api, ctx) })[tab](main);
 }
 
 /* ---------------- التقارير ---------------- */
@@ -134,11 +143,12 @@ const siteInfo = (id) => {
 
 async function tabReports(el) {
   const range = Number(LS.get('brm_range', 14)) || 14;
-  el.innerHTML = '<div class="skel h"></div><div class="skel"></div><div class="skel"></div><div class="skel h"></div>';
+  el.innerHTML = skeleton('kpi');
   let st = null, why = '';
   try { st = await loadStats(range); } catch (e) { why = e.message; }
   if (tab !== 'rep' || !el.isConnected) return;
   ctx.status(Boolean(st));
+  if (st) ctx.live(st.live);
 
   const localLog = LS.get('brm_log', []);
   let days;
@@ -174,6 +184,14 @@ async function tabReports(el) {
   topAll.forEach(([id, n]) => { const r = state.byId.get(String(id)); if (!r) return; byCl[r.cl || 'غير محدد'] = (byCl[r.cl || 'غير محدد'] || 0) + n; const t = (r.mn || '').trim() || 'بدون فني'; byTech[t] = (byTech[t] || 0) + n; });
   const clList = Object.entries(byCl).sort((a, b) => b[1] - a[1]).slice(0, 8), techList = Object.entries(byTech).sort((a, b) => b[1] - a[1]).slice(0, 8);
 
+  /* الأجهزة (جدد/عائدون/مثبّت) والأداء */
+  const retOf = (d) => Math.max(0, (d.u || 0) - (d.nw || 0));
+  const pf = days.reduce((a, d) => { if (d.pf) { a.bn += d.pf.bn; a.bs += d.pf.bs; a.sn += d.pf.sn; a.ss += d.pf.ss; } return a; }, { bn: 0, bs: 0, sn: 0, ss: 0 });
+  const msTxt = (v) => (v == null ? '—' : v >= 1000 ? `${(v / 1000).toFixed(1)} ث` : `${v} م.ث`);
+  const bootAvg = pf.bn ? Math.round(pf.bs / pf.bn) : null, srchAvg = pf.sn ? Math.round(pf.ss / pf.sn) : null;
+  const brList = merge(days.map((d) => d.br));
+  const devRows2 = days.slice().reverse().map((d) => [`<b>${d.label}</b>`, num(d.u), num(d.nw || 0), num(retOf(d)), d.u ? `${pct(d.pw || 0, d.u)}%` : '—']);
+
   const banner = st ? '<div class="note ok">متصل بالخادم — الأرقام لكل المستخدمين ومن كل الأجهزة.</div>'
     : why === 'not-configured' ? '<div class="note warn">⚠️ تخزين الخادم (KV) غير مربوط بالمشروع، لذلك التقارير من هذا الجهاز فقط. اربط مساحة KV باسم <b class="en">DATA</b> ثم أعد النشر.</div>'
     : why === 'unauthorized' ? '<div class="note warn">⚠️ بيانات الدخول غير مقبولة من الخادم. سجّل الخروج وادخل من جديد.</div>'
@@ -201,6 +219,18 @@ async function tabReports(el) {
       ${st ? kpi('ساعة الذروة', hours[peak] ? `${peak}:00` : '—', { icon: ICONS.clock, sub: 'بتوقيت بغداد' }) : ''}
       ${st ? kpi('كتابات KV اليوم', num(today.w), { icon: ICONS.database, title: 'الحد المجاني ≈ 1000 كتابة يومياً', sub: 'من 1,000' }) : ''}
     </div>
+    ${st ? pn('الاستهلاك وحدود الخطة المجانية', 'اليوم — يُصفَّر عند منتصف الليل بتوقيت بغداد', `<div class="ggs">${gauge('كتابات KV', today.w || 0, 1000, { note: 'الحد ≈ 1,000 كتابة يومياً' })}${gauge('طلبات الخادم (Pages Functions)', today.q || 0, 100000, { approx: true, note: 'تقدير من الأجهزة التي أرسلت إحصاءات؛ الرقم الدقيق في لوحة Cloudflare' })}</div>`, { icon: ICONS.database }) : ''}
+    ${st ? pn('الأجهزة والأداء', 'جدد مقابل عائدين، تثبيت التطبيق، وسرعة الفتح والبحث (من الأجهزة الفعلية)', `<div class="kcs c5 in">
+      ${kpi('أجهزة جديدة اليوم', num(today.nw || 0), { icon: ICONS.user, n: today.nw || 0 })}
+      ${kpi('أجهزة عائدة اليوم', num(retOf(today)), { icon: ICONS.users, n: retOf(today) })}
+      ${kpi('تثبيت التطبيق', today.u ? `${pct(today.pw || 0, today.u)}%` : '—', { icon: ICONS.download, sub: `<span class="en">${num(today.pw || 0)}</span> من <span class="en">${num(today.u)}</span> جهاز` })}
+      ${kpi('متوسط فتح التطبيق', msTxt(bootAvg), { icon: ICONS.clock, tone: bootAvg > 3000 ? 'bad' : '', sub: 'حتى جاهزية البحث' })}
+      ${kpi('متوسط ظهور النتيجة', msTxt(srchAvg), { icon: ICONS.search, tone: srchAvg > 500 ? 'bad' : '', sub: 'من الضغط حتى العرض' })}
+    </div>
+    <div class="grid2">
+      <div>${table(['اليوم', 'الأجهزة', 'جدد', 'عائدون', 'مثبّت'], devRows2)}</div>
+      <div><div class="sub-t">المتصفحات (حسب عمليات الإرسال)</div>${brList.length ? bars(brList.slice(0, 6), brList[0][1]) : '<div class="muted pn-empty">لا بيانات بعد — تظهر مع الدفعات القادمة.</div>'}</div>
+    </div>`, { icon: ICONS.users }) : ''}
     ${pn('النشاط اليومي', 'عدد عمليات البحث كل يوم (البرتقالي = بلا نتيجة)', dayChart(days), { icon: ICONS.chart })}
     ${st ? `<div class="grid2">
       ${pn('ساعات الذروة', `بتوقيت بغداد${hours[peak] ? ` — الأعلى ${peak}:00` : ''}`, hoursChart(hours), { icon: ICONS.clock })}
@@ -245,8 +275,10 @@ function tabUpdate(el) {
     <label class="drop" id="dz"><input type="file" id="fi" accept=".xlsx,.xlsm,.xls" hidden>${ICONS.upload}<b>اضغط لاختيار الملف أو اسحبه هنا</b><span>Excel (.xlsx)</span></label>
     <div id="prev"></div>`, { icon: ICONS.upload })}
     ${pn('تعديل موقع واحد', 'تصحيح سريع يُنشر فوراً ويُسجَّل في سجل التغييرات', `<form class="row" id="edq" autocomplete="off"><input class="inp ltr" id="edid" inputmode="numeric" placeholder="رقم الموقع" style="min-width:120px"><button class="btn" type="submit">${ICONS.search} فتح الموقع</button></form><div id="edform"></div>`, { icon: ICONS.edit })}
+    ${pn('تنزيل البيانات الحالية', 'ملف إكسل بكل المواقع المنشورة الآن (بدون تصحيحات العرض)، بنفس أعمدة الملف الأصلي فيمكن رفعه من جديد', `<button class="btn pri" id="dlx" type="button">${ICONS.download}تنزيل ملف الإكسل</button>`, { icon: ICONS.download })}
     ${pn('سجل النسخ المنشورة', 'آخر 8 نسخ + نسخ احتياطية يومية — يمكن الرجوع لأي منها', '<div id="vers"><div class="note">جارٍ التحميل…</div></div>', { icon: ICONS.history })}`;
   loadVersions();
+  $('#dlx').onclick = downloadExcel;
   $('#edq').onsubmit = (e) => { e.preventDefault(); editSite($('#edid').value.trim()); };
   const fi = $('#fi'), dz = $('#dz');
   fi.onchange = () => fi.files[0] && handleFile(fi.files[0]);

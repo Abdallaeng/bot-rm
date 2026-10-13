@@ -3,7 +3,7 @@ import { esc, toast } from '../lib/dom.js';
 import { govName } from '../lib/labels.js';
 import { state } from '../data/store.js';
 import { ICONS } from '../lib/icons.js';
-import { pgHead, pn, dl, pill, table, rel, fmtDT } from './adminUI.js';
+import { pgHead, pn, dl, pill, table, rel, fmtDT, skeleton } from './adminUI.js';
 
 const LV = { info: ['📣', 'معلومة'], warn: ['⚠️', 'تنبيه'], alert: ['🚨', 'عاجل'] };
 const ago = (t) => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? 'الآن' : m < 60 ? `قبل ${m} دقيقة` : m < 1440 ? `قبل ${Math.round(m / 60)} ساعة` : `قبل ${Math.round(m / 1440)} يوم`; };
@@ -126,7 +126,7 @@ export async function tabAlerts(el, api, current) {
 
 /* ---------------- الأمان ---------------- */
 export async function tabSecurity(el, api, ctx) {
-  el.innerHTML = '<div class="skel h"></div><div class="skel"></div>';
+  el.innerHTML = skeleton('list');
   let au = [];
   try { const r = await api('/api/audit'); if (r.ok) au = (await r.json()).log; } catch { /* */ }
   if (!el.isConnected) return;

@@ -17,9 +17,13 @@ export async function onRequestGet({ request, env }) {
   return json({
     days: keys.map((d, i) => {
       const a = aggs[i];
-      return { day: d, s: a?.s || 0, m: a?.m || 0, u: a ? Object.keys(a.u).length : 0, w: a?.w || 0, h: a?.h || Array(24).fill(0), top: top(a?.top), miss: top(a?.miss), gov: top(a?.gov) };
+      return {
+        day: d, s: a?.s || 0, m: a?.m || 0, u: a ? Object.keys(a.u).length : 0, w: a?.w || 0, h: a?.h || Array(24).fill(0), top: top(a?.top), miss: top(a?.miss), gov: top(a?.gov),
+        q: a?.q || 0, nw: a?.nw || 0, pw: a?.pw?.length || 0, pf: a?.pf || null, br: a?.br ? Object.entries(a.br).sort((x, y) => y[1] - x[1]) : [],
+      };
     }),
     devs,
+    live: { last: recent[0]?.[0] || 0, n: new Set(recent.filter((r) => Date.now() - r[0] < 30 * 60e3).map((r) => r[3])).size },
     recent,
     broadcast: bc,
     now: Date.now(),

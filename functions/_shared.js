@@ -86,6 +86,8 @@ export async function getAgg(env, day) {
   return memo(`agg:${day}`, old ? 86400 : 20, () => env.DATA.get(`agg:${day}`, 'json'));
 }
 export const dropAgg = (day) => forget(`agg:${day}`);
+/** تصحيحات العرض { v: إصدار, list } — تُقرأ كل 5 ثوانٍ كحد أقصى لكل عملية */
+export const getCorr = (env) => memo('corr', 5, async () => (await env.DATA.get('corr', 'json')) || { v: 0, list: [] });
 
 export async function signToken(env, user) {
   const payload = b64u(new TextEncoder().encode(JSON.stringify({ u: user, iat: Date.now(), exp: Date.now() + SESSION_HOURS * 3600e3 })));

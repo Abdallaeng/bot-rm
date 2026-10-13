@@ -3,7 +3,7 @@ import { $, $$, esc, isTouchDevice } from '../lib/dom.js';
 import { latinDigits, normalizeArabic } from '../lib/text.js';
 import { govName } from '../lib/labels.js';
 import { state } from '../data/store.js';
-import { track } from '../data/analytics.js';
+import { track, perfSearch } from '../data/analytics.js';
 import { renderCard, wireCard } from './card.js';
 import { pingSite, transition } from './effects.js';
 import { mark } from '../lib/mark.js';
@@ -129,6 +129,7 @@ function showPhone(raw, out) {
 }
 
 function search(commit) {
+  const t0 = performance.now();
   const raw = currentQuery(), out = $('#out');
   document.body.classList.toggle('has-result', Boolean(raw));
   if (!raw) {
@@ -141,6 +142,7 @@ function search(commit) {
   const { found, exact, gov = '' } = isNum ? (raw.length >= 7 ? showPhone(raw, out) : showId(raw, out)) : showText(raw, out);
   wireLinks();
   if (commit) {
+    perfSearch(performance.now() - t0);
     track(raw, found, gov);
     if (exact) dismissKeyboard();
   }

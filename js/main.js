@@ -2,7 +2,8 @@
 import { $, esc, toast } from './lib/dom.js';
 import { state, fetchPacket, unlockPacket, setRows, storedPacket } from './data/store.js';
 import { checkSync, startSyncLoop } from './data/sync.js';
-import { flushPending } from './data/analytics.js';
+import { flushPending, perfBoot, countReq } from './data/analytics.js';
+import { loadSaved, setDynamic } from './data/overrides.js';
 import { initBroadcast, applyBroadcast } from './ui/broadcast.js';
 import { initSearch } from './ui/search.js';
 import { renderStats, renderFooter, renderConn, initInstallPrompt } from './ui/home.js';
@@ -30,6 +31,22 @@ function showCodeGate(packet, wrong = false) {
   };
 }
 
+/** تصحيحات الإدارة: نجلب القائمة فقط عندما يتغيّر إصدارها (cv) ثم نعيد الفهرسة ونحدّث البطاقة المعروضة */
+async function refreshCorrections(cv) {
+  const saved = LS.get('brm_corr', { v: 0, list: [] });
+  if (saved.v === cv) return;
+  try {
+    countReq();
+    const r = await fetch('/api/corrections', { cache: 'no-store' });
+    if (!r.ok) return;
+    const c = await r.json();
+    LS.set('brm_corr', { v: c.v, list: c.list || [] });
+    setDynamic(c.list || []);
+    setRows(state.rows, state.meta);
+    document.dispatchEvent(new CustomEvent('botrm:data'));
+  } catch { /* نحاول في الدورة القادمة */ }
+}
+
 /** بعد العرض الفوري من الكاش: تحقّق بصمت من وجود بيانات أحدث وبدّلها */
 let current = null;
 async function refreshInBackground(force = false) {
@@ -37,6 +54,7 @@ async function refreshInBackground(force = false) {
     const sync = await checkSync(force);    // طلب واحد خفيف (إصدار + إعلان)، محدود بمرة كل 5 دقائق
     if (!sync) return;
     if ('b' in sync) applyBroadcast(sync.b);
+    if (sync.cv != null) await refreshCorrections(sync.cv);
     if (!current || !sync.updated || sync.updated === current.updated) return;
     await new Promise((r) => setTimeout(r, Math.random() * 2500));   // تأخير عشوائي: لا يصل الجميع في اللحظة نفسها
     const latest = await fetchPacket(true, sync.updated);            // لا يُحمَّل الملف إلا عند وجود إصدار جديد فعلاً
@@ -59,8 +77,10 @@ async function boot() {
   const rows = await unlockPacket(packet);
   if (!rows) return showCodeGate(packet);
 
+  loadSaved();                                          // تصحيحات الإدارة المحفوظة محلياً (بلا شبكة)
   setRows(rows, packet); current = packet;
-  $('#out .skel')?.remove();
+  perfBoot(performance.now());
+  $('#out .hskel')?.remove();
   flushPending();
   renderStats();
   renderFooter();

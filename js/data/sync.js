@@ -3,6 +3,7 @@
  *  - عند العودة للتطبيق أو عودة الاتصال يُفحص فوراً إن مرّت 30 ثانية.
  *  - الخادم يخدمه من كاش الحافة (20 ثانية) فلا يُقرأ KV مهما كثر المستخدمون. */
 import { LS } from '../lib/storage.js';
+import { countReq } from './analytics.js';
 
 const MIN_GAP = 30e3, EVERY = 80e3, JITTER = 20e3;
 let inflight = null, timer = 0, handler = null;
@@ -12,7 +13,7 @@ export function checkSync(force = false) {
   if (inflight) return inflight;
   if (!navigator.onLine) return Promise.resolve(null);
   if (!force && Date.now() - LS.get('brm_sync_ts', 0) < MIN_GAP) return Promise.resolve(null);
-  LS.set('brm_sync_ts', Date.now());
+  LS.set('brm_sync_ts', Date.now()); countReq();
   inflight = fetch('/api/sync', { cache: 'no-store' })
     .then((r) => (r.ok ? r.json() : null))
     .catch(() => null)

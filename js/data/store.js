@@ -1,6 +1,7 @@
 /** مخزن البيانات: التحميل وفك التشفير والفهرسة */
 import { LS } from '../lib/storage.js';
 import { applyOverrides } from './overrides.js';
+import { countReq } from './analytics.js';
 import { normalizeArabic } from '../lib/text.js';
 import { govName } from '../lib/labels.js';
 import { idbGet, idbSet } from './idb.js';
@@ -37,6 +38,7 @@ export const savePacket = (packet) => idbSet('packet', packet);
 
 /** fresh=false: من الكاش المحلي؛ fresh=true: من الشبكة (بعد أن يخبرنا /api/sync بوجود إصدار أحدث) */
 export async function fetchPacket(fresh = false, ver = '') {
+  countReq();
   const res = await fetch(fresh ? `${CFG.dataFile}?fresh=1${ver ? `&v=${encodeURIComponent(ver)}` : ''}` : CFG.dataFile);
   if (!res.ok) throw new Error(`data ${res.status}`);
   const packet = await res.json();

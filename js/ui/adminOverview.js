@@ -5,20 +5,23 @@ import { state, stats as dataStats } from '../data/store.js';
 import { ICONS } from '../lib/icons.js';
 import { countUp } from './effects.js';
 import { dataChecks } from './adminExtra.js';
-import { pgHead, pn, kpi, pill, dl, table, bars, dayChart, fmtDay, fmtDT, rel, num, pct } from './adminUI.js';
+import { pgHead, pn, kpi, pill, dl, table, bars, dayChart, fmtDay, fmtDT, rel, num, pct, gauge, skeleton } from './adminUI.js';
+import { healthPanel } from './adminTools.js';
 
+let liveTimer = 0;
 const json = async (r) => (r.ok ? r.json() : null);
 const settle = (p) => p.then(json).catch(() => null);
 
 /* ---------------- نظرة عامة ---------------- */
 export async function tabOverview(el, ctx) {
-  el.innerHTML = '<div class="skel h"></div><div class="skel"></div><div class="skel"></div><div class="skel h"></div>';
+  el.innerHTML = skeleton('kpi');
   const [st, ver, bc, au] = await Promise.all([
     settle(ctx.api('/api/stats?days=7')), settle(ctx.api('/api/versions')),
     settle(fetch('/api/broadcast', { cache: 'no-store' })), settle(ctx.api('/api/audit')),
   ]);
   if (ctx.tab() !== 'ov' || !el.isConnected) return;
   ctx.status(Boolean(st));
+  if (st) ctx.live(st.live);
 
   const ds = dataStats();
   const upd = state.meta.updated ? new Date(state.meta.updated) : null;
@@ -33,14 +36,12 @@ export async function tabOverview(el, ctx) {
   ctx.badge('alr', nBad || checks.length || 0, nBad ? 'bad' : 'warn');
   const last = ver?.log?.[0];
   const cur = bc?.b;
-  const wPct = Math.min(100, Math.round(((today.w || 0) / 1000) * 100));
 
   const server = pn('الخادم والتخزين', 'Cloudflare Pages + KV', dl([
     ['الحالة', st ? pill('متصل', 'ok') : pill('غير متصل', 'bad')],
     ['التتبّع', st ? pill('يعمل', 'ok') : pill('متوقف', 'warn')],
-    ['كتابات KV اليوم', `<b class="en">${num(today.w)}</b> من 1,000 <div class="meter"><i style="width:${wPct}%" class="${wPct > 70 ? 'hot' : ''}"></i></div>`],
     ['جلسة الإدارة', `<span id="ovSess">${ctx.sessionText()}</span>`],
-  ]), { icon: ICONS.server });
+  ]) + `<div class="ggs">${gauge('كتابات KV اليوم', today.w || 0, 1000, { note: 'الحد المجاني ≈ 1,000 كتابة يومياً' })}${gauge('طلبات الخادم اليوم', today.q || 0, 100000, { approx: true, note: 'تقدير من الأجهزة التي أرسلت إحصاءات (الرقم الفعلي أعلى قليلاً)' })}</div>`, { icon: ICONS.server });
 
   const data = pn('بيانات المواقع', 'النسخة التي يراها المستخدمون الآن', dl([
     ['عدد المواقع', `<b class="en">${num(ds.sites)}</b>`],
@@ -70,12 +71,13 @@ export async function tabOverview(el, ctx) {
 
   const alerts = checks.slice(0, 4).map(([lv, ic, t, d]) => `<div class="alr ${lv}"><span class="ai">${ic}</span><div><b>${esc(t)}</b><span>${esc(d)}</span></div></div>`).join('');
 
+  const hc = healthPanel(ctx);
   el.innerHTML = `${pgHead('نظرة عامة', 'حالة النظام والبيانات والاستخدام في لمحة واحدة', '<button class="btn sm" id="ovRf" type="button">' + ICONS.refresh + 'تحديث</button>')}
     ${st ? '' : '<div class="note warn">تعذّر الاتصال بالخادم أو أن تخزين KV غير مربوط، لذلك تظهر أرقام الاستخدام فارغة.</div>'}
     <div class="kcs c5">
       ${kpi('بحث اليوم', num(today.s), { tone: 'acc', icon: ICONS.search, delta, n: today.s })}
       ${kpi('نسبة النجاح اليوم', today.s ? `${100 - pct(today.m, today.s)}%` : '—', { icon: ICONS.check, sub: today.m ? `${today.m} بلا نتيجة` : 'كل البحث وُجد' })}
-      ${kpi('أجهزة اليوم', num(today.u), { icon: ICONS.users, n: today.u })}
+      ${kpi('أجهزة اليوم', num(today.u), { icon: ICONS.users, n: today.u, sub: st?.live?.n ? `${st.live.n} نشط الآن` : '' })}
       ${kpi('ساعة الذروة', today.s ? `${peak}:00` : '—', { icon: ICONS.clock, sub: 'بتوقيت بغداد' })}
       ${kpi('آخر 7 أيام', num(week), { icon: ICONS.chart, n: week })}
     </div>
@@ -86,6 +88,7 @@ export async function tabOverview(el, ctx) {
       ${pn('آخر نشاط للإدارة', 'من سجل العمليات', `<div class="alist">${acts}</div>`, { icon: ICONS.log, actions: '<button class="btn sm" data-go="log" type="button">السجل كاملاً</button>' })}
     </div>
     ${alerts ? pn('يحتاج انتباهك', `${nBad} عاجل · ${checks.length - nBad} للمراجعة`, alerts, { icon: ICONS.alert, actions: '<button class="btn sm" data-go="alr" type="button">كل التنبيهات</button>' }) : pn('التنبيهات', '', '<div class="note ok" style="margin:0">✅ لا توجد تنبيهات: كل الفحوصات سليمة.</div>', { icon: ICONS.check })}
+    ${hc.html}
     ${pn('إجراءات سريعة', '', `<div class="qa">
       <button class="qa-b" data-go="upd" type="button">${ICONS.upload}<b>رفع بيانات جديدة</b><small>إكسل ← مراجعة ← نشر</small></button>
       <button class="qa-b" data-go="bc" type="button">${ICONS.megaphone}<b>إرسال إعلان</b><small>لكل المستخدمين</small></button>
@@ -95,6 +98,13 @@ export async function tabOverview(el, ctx) {
     </div>`, { icon: ICONS.home })}`;
 
   countUp(el);
+  hc.wire();
+  clearInterval(liveTimer);
+  liveTimer = setInterval(async () => {                          // تحديث هادئ لمؤشر «مباشر» كل دقيقتين والتبويب ظاهر
+    if (ctx.tab() !== 'ov' || !el.isConnected || document.hidden || !el.closest('dialog')?.open) return clearInterval(liveTimer);
+    const s2 = await settle(ctx.api('/api/stats?days=1'));
+    if (s2) ctx.live(s2.live);
+  }, 120000);
   el.querySelectorAll('[data-go]').forEach((b) => { b.onclick = () => ctx.go(b.dataset.go); });
   el.querySelector('#ovRf').onclick = () => tabOverview(el, ctx);
 }
@@ -105,7 +115,7 @@ const LABELS = { login: 'دخول', publish: 'نشر', restore: 'استعادة'
 let filter = 'all';
 
 export async function tabAudit(el, ctx) {
-  el.innerHTML = '<div class="skel h"></div><div class="skel"></div>';
+  el.innerHTML = skeleton('list');
   let log = null, err = '';
   try {
     const r = await ctx.api('/api/audit');

@@ -75,18 +75,18 @@
 
 /* أرقام الاتصال: شبكة مضغوطة (عمودان على الهاتف) */
 .contacts { flex: 1 0 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(176px, 1fr)); gap: 6px; margin-top: 2px; }
-.pill {
+.cpill {
   display: flex; align-items: center; gap: 4px; padding: 3px; min-width: 0;
   border: 1px solid var(--line); border-radius: 12px; background: var(--surf2); transition: border-color .15s;
 }
-.pill:hover { border-color: var(--acc); }
-.pn { flex: 1; min-width: 0; padding: 2px 8px; display: flex; flex-direction: column; line-height: 1.25; color: var(--tx); text-decoration: none; border-radius: 9px; }
-.pn small { font-size: 10.5px; color: var(--mut); }
-.pn span { direction: ltr; text-align: start; font-size: 15.5px; font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
+.cpill:hover { border-color: var(--acc); }
+.cpn { flex: 1; min-width: 0; padding: 2px 8px; display: flex; flex-direction: column; line-height: 1.25; color: var(--tx); text-decoration: none; border-radius: 9px; }
+.cpn small { font-size: 10.5px; color: var(--mut); }
+.cpn span { direction: ltr; text-align: start; font-size: 15.5px; font-weight: 600; letter-spacing: .3px; white-space: nowrap; }
 .mini { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 10px; color: var(--acc); text-decoration: none; transition: transform .15s, background .15s; }
 .mini.wa { color: #1fb85a; background: color-mix(in srgb, #25d366 14%, transparent); }
 .mini:hover { transform: scale(1.08); }
 .mini svg { width: 18px; height: 18px; }
 .contacts.dense { gap: 5px; }
-.contacts.dense .pn span { font-size: 14.5px; }
+.contacts.dense .cpn span { font-size: 14.5px; }
 .contacts.dense .mini { width: 28px; height: 28px; }

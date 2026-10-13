@@ -46,7 +46,7 @@ export const spark = (vals, w = 64) => {
   const H = 20, mx = Math.max(...vals), step = w / (vals.length - 1);
   const pts = vals.map((v, i) => `${(i * step).toFixed(1)},${(H - 2 - (v / mx) * (H - 5)).toFixed(1)}`);
   const last = pts.at(-1).split(',');
-  return `<svg class="spk" style="width:${w}px" viewBox="0 0 ${w} ${H}" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${last[0]}" cy="${last[1]}" r="2.2" fill="currentColor"/></svg>`;
+  return `<svg class="spk" style="width:${w}px" viewBox="0 0 ${w} ${H}" aria-hidden="true"><polyline pathLength="1" points="${pts.join(' ')}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${last[0]}" cy="${last[1]}" r="2.2" fill="currentColor"/></svg>`;
 };
 
 /** أعمدة أفقية: rows = [[اسم, عدد, مفتاح?]] */
@@ -62,7 +62,7 @@ export function dayChart(days, { H = 190 } = {}) {
   const bars = days.map((x, i) => {
     const h = Math.round((x.s / max) * (H - 50)), bx = i * bw + bw * 0.17, w = bw * 0.66, by = H - 24 - h;
     const hit = x.m ? Math.round((x.m / max) * (H - 50)) : 0;
-    return `<g><title>${x.label}: ${x.s} بحث${x.m ? `، منها ${x.m} بلا نتيجة` : ''}</title><rect x="${bx.toFixed(1)}" y="${by}" width="${w.toFixed(1)}" height="${Math.max(h, 2)}" rx="5" fill="${i === days.length - 1 ? 'var(--acc)' : 'color-mix(in srgb,var(--acc) 45%,transparent)'}"/>${hit ? `<rect x="${bx.toFixed(1)}" y="${H - 24 - hit}" width="${w.toFixed(1)}" height="${hit}" rx="3" fill="var(--s2)" opacity=".85"/>` : ''}<text class="val" x="${(bx + w / 2).toFixed(1)}" y="${by - 5}" text-anchor="middle">${x.s || ''}</text>${days.length <= 15 || i % 2 === 0 ? `<text x="${(bx + w / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${x.label}</text>` : ''}</g>`;
+    return `<g style="--i:${i}"><title>${x.label}: ${x.s} بحث${x.m ? `، منها ${x.m} بلا نتيجة` : ''}</title><rect x="${bx.toFixed(1)}" y="${by}" width="${w.toFixed(1)}" height="${Math.max(h, 2)}" rx="5" fill="${i === days.length - 1 ? 'var(--acc)' : 'color-mix(in srgb,var(--acc) 45%,transparent)'}"/>${hit ? `<rect x="${bx.toFixed(1)}" y="${H - 24 - hit}" width="${w.toFixed(1)}" height="${hit}" rx="3" fill="var(--s2)" opacity=".85"/>` : ''}<text class="val" x="${(bx + w / 2).toFixed(1)}" y="${by - 5}" text-anchor="middle">${x.s || ''}</text>${days.length <= 15 || i % 2 === 0 ? `<text x="${(bx + w / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${x.label}</text>` : ''}</g>`;
   }).join('');
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="عدد عمليات البحث اليومية">${bars}</svg></div>`;
 }
@@ -70,5 +70,17 @@ export function dayChart(days, { H = 190 } = {}) {
 /** أعمدة الساعات (0–23) */
 export function hoursChart(hours) {
   const hMax = Math.max(1, ...hours), peak = hours.indexOf(Math.max(...hours));
-  return `<div class="hrs">${hours.map((n, i) => `<i title="${i}:00 — ${n}" style="height:${Math.max(3, Math.round((n / hMax) * 100))}%;${i === peak && n ? 'background:var(--acc)' : ''}"></i>`).join('')}</div><div class="hlab"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>`;
+  return `<div class="hrs">${hours.map((n, i) => `<i title="${i}:00 — ${n}" style="--i:${i};height:${Math.max(3, Math.round((n / hMax) * 100))}%;${i === peak && n ? 'background:var(--acc)' : ''}"></i>`).join('')}</div><div class="hlab"><span>0</span><span>6</span><span>12</span><span>18</span><span>23</span></div>`;
 }
+
+/* ---------- مؤشر حد الاستهلاك (gauge) ---------- */
+/** n من max: شريط ملوّن (أخضر < 70% ≤ برتقالي < 90% ≤ أحمر) + نسبة + ملاحظة */
+export function gauge(label, n, max, { note = '', approx = false } = {}) {
+  const p = Math.min(100, (n / max) * 100), tone = p >= 90 ? 'bad' : p >= 70 ? 'warn' : 'ok';
+  const txt = tone === 'bad' ? 'قريب جداً من الحد' : tone === 'warn' ? 'انتبه' : 'آمن';
+  return `<div class="gg ${tone}"><div class="gg-h"><b>${label}</b>${pill(txt, tone)}</div><div class="gg-v"><b class="en">${approx ? '≈ ' : ''}${num(n)}</b><span class="gg-of">من <span class="en">${num(max)}</span></span><span class="gg-p en">${p < 10 && p > 0 ? p.toFixed(1) : Math.round(p)}%</span></div><div class="meter"><i style="width:${Math.max(p ? 2 : 0, p).toFixed(1)}%" class="${tone === 'ok' ? '' : 'hot'}"></i></div>${note ? `<small class="muted">${note}</small>` : ''}</div>`;
+}
+
+/* ---------- هياكل التحميل (skeleton) بنفس شكل الصفحة ---------- */
+/** kind: 'kpi' = رأس + صف مؤشرات + لوحتان، 'list' = رأس + لوحة جدول */
+export const skeleton = (kind = 'kpi') => `<div class="sk-pg" aria-hidden="true"><div class="sk-h"><i class="sk w40"></i><i class="sk w65 s"></i></div>${kind === 'kpi' ? `<div class="sk-k">${'<div class="sk-c"><i class="sk sq"></i><div><i class="sk w50 s"></i><i class="sk w75"></i></div></div>'.repeat(5)}</div><div class="sk-g"><div class="sk-p"><i class="sk w50"></i><i class="sk blk"></i></div><div class="sk-p"><i class="sk w50"></i><i class="sk blk"></i></div></div>` : ''}<div class="sk-p"><i class="sk w40"></i>${'<i class="sk row"></i>'.repeat(kind === 'kpi' ? 3 : 6)}</div></div>`;
