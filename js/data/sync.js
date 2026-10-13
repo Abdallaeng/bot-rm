@@ -4,8 +4,9 @@
  *  - الخادم يخدمه من كاش الحافة (20 ثانية) فلا يُقرأ KV مهما كثر المستخدمون. */
 import { LS } from '../lib/storage.js';
 import { countReq } from './analytics.js';
+import { ctl } from './controls.js';
 
-const MIN_GAP = 30e3, EVERY = 80e3, JITTER = 20e3;
+const MIN_GAP = 30e3, JITTER = 20e3;       // الفاصل بين الفحوصات (EVERY) من تحكم الإدارة «فترة فحص التحديثات»
 let inflight = null, timer = 0, handler = null;
 
 /** يعيد { updated, b } أو null إن لم يكن مطلوباً/ممكناً. force=true يتجاوز الحد الزمني (زر «تحقق الآن»). */
@@ -23,8 +24,8 @@ export function checkSync(force = false) {
 
 function schedule() {
   clearTimeout(timer);
-  if (document.visibilityState !== 'visible') return;          // لا فحص والتطبيق مخفي
-  timer = setTimeout(async () => { await handler(); schedule(); }, EVERY + Math.random() * JITTER);
+  if (document.visibilityState !== 'visible' || !ctl('autoSync')) return;   // لا فحص والتطبيق مخفي أو الفحص الدوري موقوف
+  timer = setTimeout(async () => { await handler(); schedule(); }, ctl('syncEvery') * 1000 + Math.random() * JITTER);
 }
 
 /** يبدأ الفحص الدوري: fn تُستدعى عند كل دورة (تتولى هي checkSync وتطبيق النتيجة) */

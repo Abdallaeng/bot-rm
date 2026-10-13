@@ -1,11 +1,13 @@
 /** POST /api/login { user, pass } → { token, exp, weak }
  *  التحقق في الخادم + حدّ 5 محاولات فاشلة كل 15 دقيقة لكل عنوان IP. */
-import { sha256, json, signToken, currentHash, ADMIN_HASH, SESSION_HOURS, audit } from '../_shared.js';
+import { sha256, json, signToken, currentHash, ADMIN_HASH, SESSION_HOURS, getCtl, audit } from '../_shared.js';
 
-const MAX_FAILS = 5, WINDOW = 900;
+const WINDOW = 900;
 
 export async function onRequestPost({ request, env }) {
   if (!env.DATA) return json({ error: 'not-configured' }, 501);
+  const ctl = (await getCtl(env)).c;                       // تحكمات الأمان من لوحة الإدارة
+  const MAX_FAILS = ctl.maxFails || 5, HOURS = ctl.sessHours || SESSION_HOURS;
   const ip = request.headers.get('cf-connecting-ip') || 'x';
   const rlKey = `rl:${ip}`;
   const fails = Number(await env.DATA.get(rlKey)) || 0;
@@ -21,5 +23,5 @@ export async function onRequestPost({ request, env }) {
   }
   await env.DATA.delete(rlKey);
   await audit(env, request, 'login', 'تسجيل دخول ناجح');
-  return json({ token: await signToken(env, user), exp: Date.now() + SESSION_HOURS * 3600e3, weak: hash === ADMIN_HASH });
+  return json({ token: await signToken(env, user, HOURS), exp: Date.now() + HOURS * 3600e3, weak: hash === ADMIN_HASH });
 }

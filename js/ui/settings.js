@@ -1,6 +1,7 @@
 /** تخصيص المظهر: لون التطبيق وحجم الخط (يُحفظ على الجهاز) */
 import { $ } from '../lib/dom.js';
 import { LS } from '../lib/storage.js';
+import { ctl } from '../data/controls.js';
 
 const ACCENTS = [
   ['teal', 'الأزرق المخضر', null],
@@ -15,7 +16,8 @@ const SIZES = [['0.92', 'صغير'], ['1', 'عادي'], ['1.12', 'كبير'], ['
 
 export function applyPrefs() {
   const root = document.documentElement;
-  const acc = ACCENTS.find((a) => a[0] === LS.get('brm_accent', 'teal'));
+  const forced = ctl('forceAccent');                                  // لون مفروض من الإدارة
+  const acc = ACCENTS.find((a) => a[0] === (forced !== 'user' ? forced : LS.get('brm_accent', 'teal')));
   if (acc && acc[2]) root.style.setProperty('--acc', `light-dark(${acc[2][0]}, ${acc[2][1]})`);
   else root.style.removeProperty('--acc');
   root.style.zoom = LS.get('brm_zoom', '1') === '1' ? '' : LS.get('brm_zoom', '1');
@@ -55,5 +57,6 @@ function open() {
 
 export function initSettings() {
   applyPrefs();
+  document.addEventListener('botrm:ctl', applyPrefs);
   $('#settingsBtn').addEventListener('click', open);
 }

@@ -7,6 +7,9 @@ import { xlsxBlob } from '../lib/xlsxWrite.js';
 import { FIELD_LABELS } from './fields.js';
 import { ICONS } from '../lib/icons.js';
 import { pgHead, pn, pill, table, skeleton, num } from './adminUI.js';
+import { GROUPS, CONTROLS, DEFAULTS, cleanControls } from '../data/controlsSchema.js';
+import { saveControls } from '../data/controls.js';
+import { applyControls } from './controlsUi.js';
 
 /* ============ التصحيحات ============ */
 const FIELDS = [
@@ -119,4 +122,73 @@ export function downloadExcel() {
   a.download = `botrm-data-${new Date().toISOString().slice(0, 10)}.xlsx`; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   toast(`تم تنزيل ${num(rows.length)} موقع`);
+}
+
+/* ============ التحكمات (50 تحكماً) ============ */
+let ctlSeq = 0;
+export async function tabControls(el, ctx) {
+  const my = ++ctlSeq;                                     // استدعاءان متداخلان: يكتمل الأحدث فقط
+  el.innerHTML = skeleton('list');
+  let doc = { v: 0, c: {}, fd: 0, fa: 0 };
+  try { const r = await fetch('/api/controls', { cache: 'no-store' }); if (r.ok) doc = await r.json(); ctx.status(r.ok); } catch { ctx.status(false); }
+  if (my !== ctlSeq || ctx.tab() !== 'ctl' || !el.isConnected) return;
+
+  let draft = { ...DEFAULTS, ...doc.c };                   // القيم قيد التحرير (لم تُحفظ بعد)
+  const dirtyKeys = () => Object.keys(DEFAULTS).filter((k) => JSON.stringify(draft[k]) !== JSON.stringify({ ...DEFAULTS, ...doc.c }[k]));
+
+  const field = (c) => {
+    const v = draft[c.k], id = `ct_${c.k}`;
+    if (c.type === 'bool') return `<label class="tgl"><input type="checkbox" id="${id}" data-k="${c.k}"${v ? ' checked' : ''}><i></i><span class="sr">${esc(c.label)}</span></label>`;
+    if (c.type === 'num') return `<span class="ctn"><input class="inp ltr" type="number" id="${id}" data-k="${c.k}" min="${c.min}" max="${c.max}" value="${v}" inputmode="numeric"><small>${esc(c.unit)}</small></span>`;
+    if (c.type === 'text') return `<input class="inp" type="text" id="${id}" data-k="${c.k}" maxlength="${c.max}" value="${esc(v)}" placeholder="${c.def ? '' : 'الأصلي'}">`;
+    if (c.type === 'select') return `<select class="inp" id="${id}" data-k="${c.k}">${c.options.map(([o, l]) => `<option value="${o}"${o === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+    const at = doc[c.k === 'forceData' ? 'fd' : 'fa'];
+    return `<button class="btn" type="button" data-act="${c.k}">${esc(c.btn)}</button>${at ? `<small class="muted ctl-last">آخر مرة: ${new Date(at).toLocaleString('ar-IQ')}</small>` : ''}`;
+  };
+  const row = (c) => `<div class="ctr" data-key="${c.k}" data-txt="${esc(`${c.label} ${c.hint || ''}`)}"><div class="ctl-t"><b>${esc(c.label)}</b>${c.hint ? `<small>${esc(c.hint)}</small>` : ''}</div><div class="ctl-f">${field(c)}</div></div>`;
+  const groupHtml = ([g, title, desc]) => {
+    const items = CONTROLS.filter((c) => c.g === g);
+    return `<section class="pn ctg" data-g="${g}"><header class="pn-h"><div class="pn-tt"><b>${esc(title)} <span class="muted">(${items.length})</span></b><small>${esc(desc)}</small></div><div class="pn-a"><button class="btn sm" type="button" data-reset="${g}">استعادة الافتراضي</button></div></header><div class="pn-b">${items.map(row).join('')}</div></section>`;
+  };
+
+  el.innerHTML = `${pgHead('التحكمات', `${CONTROLS.length} تحكماً في المنصة. التعديل لا يُطبَّق على المستخدمين إلا بعد «حفظ التغييرات».`)}
+    <div class="note">تصل التغييرات إلى الأجهزة خلال دقيقة أو دقيقتين تقريباً (بلا إعادة نشر). إن أغلقت الواجهة ثم احتجت للدخول أثناء الصيانة استعمل الرابط <bdi dir="ltr" class="en"><b>/?admin</b></bdi>.</div>
+    <div class="ctl-bar"><input class="inp" id="ctF" type="search" placeholder="ابحث في التحكمات…" aria-label="بحث"><span id="ctN" class="muted"></span></div>
+    <div id="ctBody">${GROUPS.map(groupHtml).join('')}</div>
+    <div class="ctl-save" id="ctS" hidden><span id="ctC"></span><button class="btn" type="button" id="ctX">تراجع</button><button class="btn pri" type="button" id="ctOk">${ICONS.save}حفظ التغييرات</button></div>`;
+
+  const refreshBar = () => { const n = dirtyKeys().length; $('#ctS').hidden = !n; $('#ctC').textContent = `${n} تغيير غير محفوظ`; el.querySelectorAll('.ctr').forEach((r) => r.classList.toggle('dirty', dirtyKeys().includes(r.dataset.key))); };
+  const read = (inp) => { const c = CONTROLS.find((x) => x.k === inp.dataset.k); draft[c.k] = c.type === 'bool' ? inp.checked : c.type === 'num' ? Number(inp.value) : inp.value; refreshBar(); };
+  const wire = () => {
+    el.querySelectorAll('[data-k]').forEach((i) => { i.oninput = () => read(i); i.onchange = () => read(i); });
+    el.querySelectorAll('[data-reset]').forEach((b) => { b.onclick = () => { CONTROLS.filter((c) => c.g === b.dataset.reset && c.type !== 'action').forEach((c) => { draft[c.k] = c.def; }); redraw(); }; });
+    el.querySelectorAll('[data-act]').forEach((b) => {
+      b.onclick = async () => {
+        if (!confirm('سيتأثر كل المستخدمين عند فتحهم للتطبيق. المتابعة؟')) return;
+        b.disabled = true;
+        try { const r = await ctx.api('/api/controls', { method: 'POST', body: JSON.stringify({ action: b.dataset.act }) }); if (!r.ok) throw new Error(); doc = await r.json(); saveControls(doc); toast('تم. سيصل الأمر للأجهزة خلال دقيقة'); redraw(); }
+        catch { toast('تعذّر التنفيذ'); b.disabled = false; }
+      };
+    });
+  };
+  const redraw = () => { $('#ctBody').innerHTML = GROUPS.map(groupHtml).join(''); wire(); refreshBar(); filter(); };
+  const filter = () => {
+    const q = $('#ctF').value.trim(); let n = 0;
+    el.querySelectorAll('.ctr').forEach((r) => { const hit = !q || r.dataset.txt.includes(q); r.hidden = !hit; if (hit) n++; });
+    el.querySelectorAll('.ctg').forEach((g) => { g.hidden = ![...g.querySelectorAll('.ctr')].some((r) => !r.hidden); });
+    $('#ctN').textContent = q ? `${n} نتيجة` : '';
+  };
+  $('#ctF').oninput = filter;
+  $('#ctX').onclick = () => { draft = { ...DEFAULTS, ...doc.c }; redraw(); };
+  $('#ctOk').onclick = async () => {
+    const btn = $('#ctOk'); btn.disabled = true;
+    try {
+      const r = await ctx.api('/api/controls', { method: 'POST', body: JSON.stringify({ c: cleanControls(draft) }) });
+      if (!r.ok) throw new Error(r.status === 401 ? 'انتهت الجلسة' : 'تعذّر الحفظ');
+      doc = await r.json(); saveControls(doc); applyControls();
+      draft = { ...DEFAULTS, ...doc.c }; toast('تم الحفظ — ظهر عندك الآن وسيصل للباقين خلال دقيقة'); redraw();
+    } catch (e) { toast(e.message || 'تعذّر الحفظ'); }
+    btn.disabled = false;
+  };
+  wire(); refreshBar();
 }

@@ -1,6 +1,6 @@
-/** GET /api/sync — طلب واحد خفيف يجمع إصدار البيانات والإعلان الحالي: { updated, b, cv } (cv = إصدار التصحيحات).
+/** GET /api/sync — طلب واحد خفيف يجمع إصدار البيانات والإعلان الحالي: { updated, b, cv, tv } (cv = إصدار التصحيحات، tv = إصدار التحكمات).
  *  يُخزَّن في كاش الحافة 20 ثانية، فمهما كثر المستخدمون لا يُقرأ KV أكثر من 3 مرات في الدقيقة لكل منطقة. */
-import { json, getVersion, edgeCached, memo, getCorr } from '../_shared.js';
+import { json, getVersion, edgeCached, memo, getCorr, getCtl } from '../_shared.js';
 
 export async function onRequestGet(ctx) {
   const { env } = ctx;
@@ -8,6 +8,7 @@ export async function onRequestGet(ctx) {
     const v = await getVersion(ctx);
     const b = env.DATA ? await memo('bcast', 5, () => env.DATA.get('broadcast', 'json')) : null;
     const c = env.DATA ? await getCorr(env) : { v: 0 };
-    return json({ updated: v.stored > v.fixed ? v.stored : v.fixed, b: b && (!b.expires || b.expires > Date.now()) ? b : null, cv: c.v });
+    const k = env.DATA ? await getCtl(env) : { v: 0 };
+    return json({ updated: v.stored > v.fixed ? v.stored : v.fixed, b: b && (!b.expires || b.expires > Date.now()) ? b : null, cv: c.v, tv: k.v });
   });
 }

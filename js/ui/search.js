@@ -3,6 +3,7 @@ import { $, $$, esc, isTouchDevice } from '../lib/dom.js';
 import { latinDigits, normalizeArabic } from '../lib/text.js';
 import { govName } from '../lib/labels.js';
 import { state } from '../data/store.js';
+import { ctl } from '../data/controls.js';
 import { track, perfSearch } from '../data/analytics.js';
 import { renderCard, wireCard } from './card.js';
 import { pingSite, transition } from './effects.js';
@@ -11,7 +12,6 @@ import { emptyState } from '../lib/art.js';
 import { renderRecent, loadPopular } from './home.js';
 import { setNavList, navBar, initSwipe } from './swipe.js';
 
-const COMMIT_DELAY = 700;      // مهلة الصمت قبل اعتبار البحث نهائياً
 let commitTimer = null;
 let shownSig = '';             // بصمة الموقع المعروض: عند تحديث البيانات لا نعيد رسم بطاقة لم تتغيّر
 let shownId = null;            // آخر موقع عُرض (لتشغيل التأثير مرة واحدة)
@@ -39,7 +39,7 @@ function onInput() {
   $('#clr').hidden = !q.value;
   search(false);
   clearTimeout(commitTimer);
-  commitTimer = setTimeout(() => search(true), COMMIT_DELAY);
+  commitTimer = setTimeout(() => search(true), ctl('sDebounce'));   // مهلة الصمت قبل اعتبار البحث نهائياً (تحكّم من الإدارة)
 }
 
 function similarChips(sites, withoutTitle) {
@@ -67,13 +67,13 @@ function showId(raw, out) {
   const similar = state.rows
     .filter((r) => r !== hit && r.id.startsWith(raw))
     .sort((x, y) => x.id.length - y.id.length || x.id - y.id)
-    .slice(0, 8);
+    .slice(0, ctl('sSimilar') || ctl('sSuggestPrefix') ? 8 : 0);
   if (hit) {
     shownSig = sigOf(hit);
-    out.innerHTML = renderCard(hit) + navBar(hit.id) + similarChips(similar);
+    out.innerHTML = renderCard(hit) + navBar(hit.id) + (ctl('sSimilar') ? similarChips(similar) : '');
     wireCard(hit);
     if (shownId !== hit.id) { shownId = hit.id; pingSite(hit.sev); }
-  } else if (similar.length) {
+  } else if (similar.length && ctl('sSuggestPrefix')) {
     shownSig = '';
     out.innerHTML = `<div class="suggest-title">مواقع تبدأ بـ <b>${esc(raw)}</b></div><div class="list">${similar.map((r) => listItem(r, [], raw)).join('')}</div>`;
   } else {
@@ -108,10 +108,13 @@ function fuzzyMatch(r, tokens) {
 }
 
 function showText(raw, out) {
+  if (!ctl('sTextOn')) { out.innerHTML = notFound('البحث بالنص غير متاح حالياً', 'ابحث برقم الموقع أو رقم الهاتف.'); return { found: false, exact: false, skip: true }; }
+  if (raw.length < ctl('sMinChars')) { out.innerHTML = notFound('اكتب أكثر', `اكتب ${ctl('sMinChars')} أحرف على الأقل للبحث.`); return { found: false, exact: false, skip: true }; }
   const tokens = normalizeArabic(raw).split(' ').filter(Boolean);
-  let results = state.rows.filter((r) => tokens.every((t) => r._s.includes(t))).slice(0, 30);
+  const cap = ctl('sMaxResults');
+  let results = state.rows.filter((r) => tokens.every((t) => r._s.includes(t))).slice(0, cap);
   let approx = false;
-  if (!results.length && tokens.some((t) => t.length >= 4)) { results = state.rows.filter((r) => fuzzyMatch(r, tokens)).slice(0, 30); approx = results.length > 0; }
+  if (!results.length && ctl('sFuzzyOn') && tokens.some((t) => t.length >= 4)) { results = state.rows.filter((r) => fuzzyMatch(r, tokens)).slice(0, cap); approx = results.length > 0; }
   out.innerHTML = results.length
     ? `${approx ? '<div class="suggest-title">لا يوجد تطابق تام — نتائج <b>مقاربة</b> لما كتبت</div>' : ''}<div class="list">${results.map((r) => listItem(r, tokens)).join('')}</div>`
     : notFound('لا توجد نتائج', 'جرّب رقم الموقع أو جزءاً من العنوان أو اسم الفني.');
@@ -120,8 +123,9 @@ function showText(raw, out) {
 
 /** بحث برقم هاتف (7 أرقام فأكثر) */
 function showPhone(raw, out) {
+  if (!ctl('sPhoneOn')) { out.innerHTML = notFound('البحث برقم الهاتف غير متاح حالياً', 'ابحث برقم الموقع.'); return { found: false, exact: false, skip: true }; }
   const d = raw.replace(/^0+/, '');
-  const results = state.rows.filter((r) => r._p.replace(/ /g, '').includes(d) || r._p.includes(raw)).slice(0, 30);
+  const results = state.rows.filter((r) => r._p.replace(/ /g, '').includes(d) || r._p.includes(raw)).slice(0, ctl('sMaxResults'));
   out.innerHTML = results.length
     ? `<div class="suggest-title">مواقع مرتبطة بالرقم <b class="en">${esc(raw)}</b></div><div class="list">${results.map((r) => listItem(r)).join('')}</div>`
     : notFound('لا يوجد موقع بهذا الرقم', 'تأكد من رقم الهاتف وأعد المحاولة.');
@@ -139,9 +143,9 @@ function search(commit) {
   }
   history.replaceState(null, '', `#${encodeURIComponent(raw)}`);
   const isNum = /^\d+$/.test(raw);
-  const { found, exact, gov = '' } = isNum ? (raw.length >= 7 ? showPhone(raw, out) : showId(raw, out)) : showText(raw, out);
+  const { found, exact, gov = '', skip = false } = isNum ? (raw.length >= 7 ? showPhone(raw, out) : showId(raw, out)) : showText(raw, out);
   wireLinks();
-  if (commit) {
+  if (commit && !skip) {
     perfSearch(performance.now() - t0);
     track(raw, found, gov);
     if (exact) dismissKeyboard();

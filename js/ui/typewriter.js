@@ -3,10 +3,11 @@
  *  - التخطيط ثابت: الجزء غير المكتوب بعد يبقى في مكانه شفافاً فلا يقفز النص.
  *  - يُطبَّق فقط على النصوص الظاهرة في الشاشة (حدّ أقصى لكل دفعة) ولا يعمل مع «تقليل الحركة». */
 import { LS } from '../lib/storage.js';
+import { ctl } from '../data/controls.js';
 const MAX_BATCH = 36, SKIP = 'script,style,svg,input,textarea,select,option,pre,code,[data-notype],.tw-v,.tw-h,.tw-c';
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const off = /[?&]notype\b/.test(location.search);
-const mode = () => LS.get('brm_type', 'on');   // on | fast | off — من الإعدادات
+const mode = () => (ctl('typeAnim') !== 'user' ? ctl('typeAnim') : LS.get('brm_type', 'on'));   // on | fast | off — من الإدارة أو من إعدادات المستخدم
 const LETTER = /[\p{L}]/u;
 const jobs = new Set();
 let raf = 0;

@@ -3,6 +3,7 @@
  *  2) ديناميكية من لوحة الإدارة (تبويب «التصحيحات»): تُحمَّل من /api/corrections وتُخزَّن محلياً (LS brm_corr).
  *  عند انتهاء التاريخ يعود النص الأصلي تلقائياً. */
 import { LS } from '../lib/storage.js';
+import { ctl } from './controls.js';
 
 const LIST = [
   { id: '1245', until: '2026-10-24', set: { nm: 'الشالجية بيت طه الابرز قرب قرية البوعامر' } },
@@ -16,6 +17,8 @@ export const builtinList = () => LIST;
 export function setDynamic(list) { dynamic = Array.isArray(list) ? list : []; }
 export const loadSaved = () => { setDynamic(LS.get('brm_corr', { list: [] }).list); };
 
+/** حقول تُخفى من البيانات نفسها بتحكم من الإدارة (فتختفي من البطاقة والنسخ والصورة والبحث) */
+const HIDE = [['cInv', 'inv'], ['cOwn', 'own'], ['cPhone', 'mp'], ['cSev', 'sev']];
 const expired = (until, now) => until && now >= Date.parse(until + 'T00:00:00+03:00');
 
 /** يعيد الصف لقيمه الأصلية ثم يطبّق الاستثناءات الحالية (آمن للاستدعاء المتكرر) */
@@ -27,6 +30,7 @@ export function applyOverrides(row, now = Date.now()) {
     for (const k of Object.keys(o.set || {})) { row['_o_' + k] = row[k]; row[k] = o.set[k]; }
     if (o.dropX?.length) { row._o_x = row._o_x ?? row.x; row.x = { ...(row.x || {}) }; for (const k of o.dropX) delete row.x[k]; }
   }
+  for (const [ck, f] of HIDE) { if (!ctl(ck) && row[f]) { if (!('_o_' + f in row)) row['_o_' + f] = row[f]; row[f] = ''; } }
   for (const c of dynamic) {
     if (c.id !== id || expired(c.until, now)) continue;
     if (c.field.startsWith('x.')) {

@@ -1,0 +1,19 @@
+/* ===== تحكمات الإدارة (js/ui/controlsUi.js): أصناف x-<مفتاح> على <html> تُخفي العنصر ===== */
+.x-showAdmin #adminBtn, .x-showSettings #settingsBtn, .x-sMultiOn #multiBtn, .x-sBrowseOn #browseBtn { display: none !important; }
+.x-forceTheme #themeBtn { display: none !important; }
+.x-forceAccent #settingsBtn { display: none !important; }
+.x-sSimilar .simi { display: none !important; }
+.x-cMap .card .acts a.btn.pri.icon { display: none !important; }
+.x-cWa .mini.wa { display: none !important; }
+.x-cImg #imgBtn, .x-cPrint #printBtn, .x-cShare #shareBtn, .x-cShare #copyBtn { display: none !important; }
+.x-cMore details.more[data-mem=more], .x-cHist details.hist { display: none !important; }
+.x-cFresh .bd.upd { display: none !important; } .x-cFresh .chg { animation: none !important; }
+.x-hStats #stats, .x-hFooter #foot, .x-hConn #conn, .x-hScene #stage { display: none !important; }
+
+/* شاشة الصيانة: تخفي البحث والنتائج وتبقي الرأس (وفيه زر الإدارة) */
+.maint { display: none; }
+.is-maint .maint { display: grid; place-items: center; padding: 28px 16px; }
+.is-maint .hero, .is-maint #out { display: none !important; }
+.maint-card { max-width: 440px; width: 100%; text-align: center; padding: 28px 22px; border: 1px solid var(--line); border-radius: 22px; background: var(--bg2); display: grid; gap: 10px; justify-items: center; }
+.maint-card svg { width: 46px; height: 46px; color: var(--acc); }
+.maint-card h2 { margin: 4px 0 0; font-size: 22px; } .maint-card p { margin: 0; color: var(--mut); line-height: 1.7; } .maint-card small { color: var(--acc); font-weight: 700; }

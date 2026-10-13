@@ -14,6 +14,7 @@ import { initHaptics } from './lib/haptic.js';
 import { initSettings } from './ui/settings.js';
 import { initTypewriter } from './ui/typewriter.js';
 import { initMulti } from './ui/multi.js';
+import { initControls, refreshControls } from './ui/controlsUi.js';
 
 function showMessage(title, message, withRetry = true) {
   $('#main').innerHTML = `<div class="gate"><div class="card"><h2>${title}</h2><p>${esc(message)}</p>${withRetry ? '<button class="btn pri" onclick="location.reload()">إعادة المحاولة</button>' : ''}</div></div>`;
@@ -55,6 +56,7 @@ async function refreshInBackground(force = false) {
     if (!sync) return;
     if ('b' in sync) applyBroadcast(sync.b);
     if (sync.cv != null) await refreshCorrections(sync.cv);
+    if (sync.tv != null) await refreshControls(sync.tv);
     if (!current || !sync.updated || sync.updated === current.updated) return;
     await new Promise((r) => setTimeout(r, Math.random() * 2500));   // تأخير عشوائي: لا يصل الجميع في اللحظة نفسها
     const latest = await fetchPacket(true, sync.updated);            // لا يُحمَّل الملف إلا عند وجود إصدار جديد فعلاً
@@ -90,6 +92,7 @@ async function boot() {
   initMulti();
   initBroadcast();
   const qs = new URLSearchParams(location.search);       // اختصارات الشاشة الرئيسية
+  if (qs.has('admin')) import('./ui/admin.js').then((m) => m.openAdmin());
   if (qs.has('browse')) openBrowse(); else if (qs.has('focus')) $('#q').focus();
   if (!navigator.onLine) toast('أنت غير متصل — يعمل التطبيق بالبيانات المحفوظة');
   renderConn();
@@ -101,6 +104,7 @@ async function boot() {
   startSyncLoop(() => { refreshInBackground(); renderConn(); });
 }
 
+initControls();
 initTheme();
 initSettings();
 initHaptics();

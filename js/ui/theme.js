@@ -1,6 +1,7 @@
 /** وضع العرض: تلقائي (حسب الجهاز) ← نهاري ← ليلي ← حسب الوقت (نهاري 6ص–6م) */
 import { $, toast } from '../lib/dom.js';
 import { LS } from '../lib/storage.js';
+import { ctl } from '../data/controls.js';
 
 const ORDER = ['auto', 'light', 'dark', 'time'];
 const LABEL = { auto: 'الوضع التلقائي (حسب الجهاز)', light: 'الوضع النهاري', dark: 'الوضع الليلي', time: 'حسب الوقت: نهاري من 6 صباحاً إلى 6 مساءً' };
@@ -10,7 +11,8 @@ const byClock = (d = new Date()) => (d.getHours() >= 6 && d.getHours() < 18 ? 'l
 function paint(mode) {
   const root = document.documentElement;
   root.dataset.mode = mode;
-  const forced = mode === 'time' ? byClock() : mode;
+  const fm = ctl('forceTheme');                                      // وضع مفروض من الإدارة
+  const forced = fm !== 'user' ? fm : mode === 'time' ? byClock() : mode;
   if (forced === 'auto') delete root.dataset.theme; else root.dataset.theme = forced;
   const effective = forced === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : forced;
   document.querySelector('meta[name=theme-color]')?.setAttribute('content', BAR[effective]);
@@ -43,5 +45,6 @@ export function initTheme() {
     schedule();
     toast(LABEL[mode]);
   });
+  document.addEventListener('botrm:ctl', () => apply(mode, false));
   matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => mode === 'auto' && apply('auto', false));
 }

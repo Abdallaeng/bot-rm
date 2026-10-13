@@ -10,7 +10,7 @@ export const json = (body, status = 200) =>
 /* ---------- جلسات الإدارة: توقيع HMAC بسرّ يُولَّد مرة واحدة ويُحفظ في KV ---------- */
 const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const unb64u = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
-export const SESSION_HOURS = 12;
+export const SESSION_HOURS = 12;   // الافتراضي؛ يمكن تغييره من تحكم «مدة جلسة الإدارة»
 
 /* ---------- ذاكرة داخل العملية (isolate): تقلّل قراءات KV المتكررة ---------- */
 const MEM = new Map();
@@ -86,11 +86,14 @@ export async function getAgg(env, day) {
   return memo(`agg:${day}`, old ? 86400 : 20, () => env.DATA.get(`agg:${day}`, 'json'));
 }
 export const dropAgg = (day) => forget(`agg:${day}`);
+/** تحكمات المنصة { v, c, fd, fa } — تُقرأ كل 5 ثوانٍ كحد أقصى لكل عملية */
+export const getCtl = (env) => memo('ctl', 5, async () => { const d = (await env.DATA.get('ctl', 'json')) || {}; return { v: d.v || 0, c: d.c || {}, fd: d.fd || 0, fa: d.fa || 0 }; });
+
 /** تصحيحات العرض { v: إصدار, list } — تُقرأ كل 5 ثوانٍ كحد أقصى لكل عملية */
 export const getCorr = (env) => memo('corr', 5, async () => (await env.DATA.get('corr', 'json')) || { v: 0, list: [] });
 
-export async function signToken(env, user) {
-  const payload = b64u(new TextEncoder().encode(JSON.stringify({ u: user, iat: Date.now(), exp: Date.now() + SESSION_HOURS * 3600e3 })));
+export async function signToken(env, user, hours = SESSION_HOURS) {
+  const payload = b64u(new TextEncoder().encode(JSON.stringify({ u: user, iat: Date.now(), exp: Date.now() + hours * 3600e3 })));
   const sig = await crypto.subtle.sign('HMAC', await secretKey(env), new TextEncoder().encode(payload));
   return `${payload}.${b64u(sig)}`;
 }

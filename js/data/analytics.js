@@ -2,6 +2,7 @@
  *  توفيراً لحصة الكتابة في KV: الأحداث تُجمَّع في طابور محلي (يبقى محفوظاً) ولا تُرسل إلا عند
  *  (أ) تجمّع 25 حدثاً، أو (ب) مرور 15 دقيقة على أقدم حدث غير مرسل، فيصل كل ذلك بكتابة واحدة. */
 import { LS } from '../lib/storage.js';
+import { ctl } from './controls.js';
 
 export const ymd = (d = new Date()) => d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
 
@@ -17,7 +18,7 @@ export const perfBoot = (ms) => { const p = LS.get('brm_pf', { b: 0, sn: 0, ss: 
 export const perfSearch = (ms) => { const p = LS.get('brm_pf', { b: 0, sn: 0, ss: 0 }); p.sn++; p.ss += Math.round(ms); LS.set('brm_pf', p); };
 const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
-const BATCH = 25, MAX_AGE = 15 * 60e3;
+const MAX_AGE = 15 * 60e3;
 let lastTracked = '', timer = 0;
 export function track(query, found, gov = '') {
   const sig = `${query}|${found}`;
@@ -30,7 +31,7 @@ export function track(query, found, gov = '') {
   const q = LS.get('brm_evq', []);
   q.push([now, query, found ? 1 : 0, gov]);
   LS.set('brm_evq', q.slice(-300));
-  if (q.length >= BATCH) flushPending(true);
+  if (q.length >= ctl('trackBatch')) flushPending(true);
   else if (!timer) timer = setTimeout(() => { timer = 0; flushPending(); }, MAX_AGE);
   document.dispatchEvent(new CustomEvent('botrm:log'));
 }
@@ -38,10 +39,10 @@ export function track(query, found, gov = '') {
 let sending = false;
 export async function flushPending(force = false) {
   const q = LS.get('brm_evq', []);
-  if (!q.length || sending || !navigator.onLine) return;
+  if (!q.length || sending || !navigator.onLine || !ctl('trackOn')) return;   // تتبّع الإحصاءات موقوف من الإدارة
   const now = Date.now();
   if (now < LS.get('brm_notrack', 0)) return;            // الخادم غير مفعّل أو طلب منّا الانتظار
-  if (!force && q.length < BATCH && now - q[0][0] < MAX_AGE) return;   // لم يحن موعد الإرسال بعد
+  if (!force && q.length < ctl('trackBatch') && now - q[0][0] < MAX_AGE) return;   // لم يحن موعد الإرسال بعد
   sending = true;
   const batch = q.slice(0, 50);
   try {

@@ -6,6 +6,7 @@ import { countReq } from '../data/analytics.js';
 import { stats } from '../data/store.js';
 import { recentSearches } from '../data/analytics.js';
 import { countUp } from './effects.js';
+import { ctl } from '../data/controls.js';
 
 export function renderStats() {
   const s = stats();
@@ -45,9 +46,9 @@ export async function loadPopular(onPick) {
 }
 
 export function renderRecent(onPick) {
-  const seen = recentSearches();
+  const seen = ctl('hRecent') ? recentSearches() : [];
   const chips = (list) => `<div>${list.map((id) => `<button class="chip" type="button" data-id="${esc(id)}">${esc(id)}</button>`).join('')}</div>`;
-  const pop = popular.filter((id) => !seen.includes(id)).slice(0, 8);
+  const pop = ctl('hPopular') ? popular.filter((id) => !seen.includes(id)).slice(0, 8) : [];
   $('#recent').innerHTML = (seen.length ? `<small>آخر ما بحثت عنه</small>${chips(seen)}` : '') + (pop.length ? `<small style="margin-top:12px">الأكثر بحثاً هذا الأسبوع</small>${chips(pop)}` : '');
   $$('#recent [data-id]').forEach((b) => { b.onclick = () => onPick(b.dataset.id); });
 }

@@ -3,6 +3,7 @@
 import { esc } from '../lib/dom.js';
 import { IO, govName } from '../lib/labels.js';
 import { formatIsoDate } from '../lib/text.js';
+import { ctl } from '../data/controls.js';
 
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 const ICON = {
@@ -91,7 +92,9 @@ function notesGroup(r) {
 /** يعيد { html, count } لكل الحقول المتوفرة (count = عدد الحقول التي لها قيمة) */
 export function renderMore(r) {
   let total = 0, html = '';
+  const GATE = { net: 'cGrpNet', team: 'cGrpTeam', equip: 'cGrpEquip' };
   for (const g of GROUPS) {
+    if (GATE[g.id] && !ctl(GATE[g.id])) continue;                 // قسم أوقفته الإدارة
     const cells = g.fields.map(([key, label, opt]) => [label, read(r, key), opt]).filter(([, v]) => v !== '' && v != null);
     if (!cells.length) continue;
     total += cells.length;

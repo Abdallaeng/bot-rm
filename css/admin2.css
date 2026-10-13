@@ -262,3 +262,24 @@ dialog.adm.login { margin: auto; width: min(420px, calc(100vw - 20px)); height: 
 @media (prefers-reduced-motion: reduce) { .spk polyline { stroke-dashoffset: 0; } .spk circle { opacity: 1; } }
 .gg-v { flex-wrap: wrap; } .gg-p { margin-inline-start: auto; font-weight: 700; color: var(--mut); }
 .kcs.in { margin-bottom: 14px; }
+
+/* ---- التحكمات ---- */
+.ctl-bar { display: flex; gap: 12px; align-items: center; margin: 14px 0; } .ctl-bar .inp { flex: 1; max-width: 380px; }
+.ctg[hidden], .ctr[hidden] { display: none; }
+.ctr { display: flex; gap: 16px; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--line); transition: background .25s; }
+.ctr:first-child { border-top: 0; }
+.ctr.dirty { background: color-mix(in srgb, var(--acc) 9%, transparent); box-shadow: inset 3px 0 0 var(--acc); padding-inline: 10px; border-radius: 8px; }
+.ctl-t { display: grid; gap: 2px; min-width: 0; flex: 1; } .ctl-t b { font-size: 14px; } .ctl-t small { color: var(--mut); font-size: 12px; line-height: 1.5; }
+.ctl-f { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; max-width: 46%; }
+.ctl-f .inp[type=text], .ctl-f select.inp { min-width: 220px; width: 100%; }
+.ctn { display: inline-flex; align-items: center; gap: 6px; } .ctn .inp { width: 92px; text-align: center; }
+.tgl { position: relative; display: inline-block; width: 46px; height: 26px; cursor: pointer; }
+.tgl input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+.tgl i { position: absolute; inset: 0; border-radius: 99px; background: var(--line); transition: background .2s; }
+.tgl i::after { content: ''; position: absolute; top: 3px; inset-inline-start: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s; }
+.tgl input:checked + i { background: var(--acc); } .tgl input:checked + i::after { transform: translateX(-20px); }
+.tgl input:focus-visible + i { outline: 2px solid var(--acc); outline-offset: 2px; }
+.ctl-save { position: sticky; bottom: 10px; display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 14px; padding: 10px 14px; border-radius: 14px; background: var(--card, var(--bg2)); border: 1px solid var(--line); box-shadow: 0 8px 28px rgba(0,0,0,.2); } .ctl-save[hidden] { display: none; } .ctl-save span { margin-inline-end: auto; font-weight: 600; }
+@media (max-width: 640px) { .ctr { flex-wrap: wrap; } .ctl-f { max-width: 100%; width: 100%; align-items: flex-start; } }
+@media (prefers-reduced-motion: reduce) { .tgl i, .tgl i::after, .ctr { transition: none; } }
+.ctr .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

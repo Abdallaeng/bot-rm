@@ -7,7 +7,7 @@ import { CFG, state, setRows, fixSwappedCoords } from '../data/store.js';
 import { ymd } from '../data/analytics.js';
 import { tabBroadcast, tabAlerts, tabSecurity } from './adminExtra.js';
 import { tabOverview, tabAudit } from './adminOverview.js';
-import { tabFix, downloadExcel } from './adminTools.js';
+import { tabFix, tabControls, downloadExcel } from './adminTools.js';
 import { FIELD_LABELS } from './fields.js';
 import { applyHistory, editHistory } from '../data/history.js';
 import { ICONS } from '../lib/icons.js';
@@ -67,7 +67,7 @@ function login(err) {
 }
 
 /* ---------------- الهيكل: رأس + قائمة جانبية + محتوى ---------------- */
-const NAV = [['ov', 'نظرة عامة', 'home'], ['rep', 'التقارير', 'chart'], ['alr', 'التنبيهات', 'bell'], ['bc', 'البث', 'megaphone'], ['upd', 'البيانات', 'upload'], ['fix', 'التصحيحات', 'edit'], ['log', 'سجل العمليات', 'log'], ['sec', 'الأمان', 'shield']];
+const NAV = [['ov', 'نظرة عامة', 'home'], ['rep', 'التقارير', 'chart'], ['alr', 'التنبيهات', 'bell'], ['bc', 'البث', 'megaphone'], ['upd', 'البيانات', 'upload'], ['fix', 'التصحيحات', 'edit'], ['ctl', 'التحكمات', 'server'], ['log', 'سجل العمليات', 'log'], ['sec', 'الأمان', 'shield']];
 let tab = LS.get('brm_admtab', 'ov');
 if (!NAV.some((n) => n[0] === tab)) tab = 'ov';
 
@@ -114,7 +114,7 @@ function showTab() {
   dlg.querySelectorAll('.ni').forEach((b) => { const on = b.dataset.t === tab; b.classList.toggle('on', on); if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
   const main = $('#tb');
   main.scrollTop = 0;
-  ({ ov: (el) => tabOverview(el, ctx), rep: tabReports, alr: (el) => tabAlerts(el, api, () => tab), bc: (el) => tabBroadcast(el, api, () => tab), upd: tabUpdate, fix: (el) => tabFix(el, ctx), log: (el) => tabAudit(el, ctx), sec: (el) => tabSecurity(el, api, ctx) })[tab](main);
+  ({ ov: (el) => tabOverview(el, ctx), rep: tabReports, alr: (el) => tabAlerts(el, api, () => tab), bc: (el) => tabBroadcast(el, api, () => tab), upd: tabUpdate, fix: (el) => tabFix(el, ctx), ctl: (el) => tabControls(el, ctx), log: (el) => tabAudit(el, ctx), sec: (el) => tabSecurity(el, api, ctx) })[tab](main);
 }
 
 /* ---------------- التقارير ---------------- */
