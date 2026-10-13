@@ -20,6 +20,7 @@ export function fixSwappedCoords(row) {
 }
 
 export function setRows(rows, meta = {}) {
+  window.BotCore?.canonClusters?.(rows);          // يوحّد كتابة الكلستر أيضاً في بيانات منشورة سابقاً
   state.rows = rows;
   state.meta = meta;
   state.byId = new Map();

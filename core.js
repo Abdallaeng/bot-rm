@@ -107,6 +107,46 @@
     return byId;
   }
 
+
+  /* ---------- الكلستر: عنوان العمود وأسماء القيم قد تُكتب بصيغ مختلفة (Cluster / Clyster / الكلستر ، حجي / حجى …) ---------- */
+  const lev = (a, b) => {
+    const m = a.length, n = b.length; if (Math.abs(m - n) > 2) return 9;
+    let prev = Array.from({ length: n + 1 }, (_, j) => j);
+    for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; }
+    return prev[n];
+  };
+  const CL_ALIASES = ['الكلستر', 'كلستر', 'الكلاستر', 'كلاستر', 'المشرف', 'اسم المشرف', 'مشرف', 'supervisor', 'supervision name', 'supervisor name'];
+  function isClusterHeader(h) {
+    const t = String(h || '').replace(/[^a-z\u0600-\u06FF ]/g, '').trim();
+    if (!t) return false;
+    return CL_ALIASES.includes(t) || (/^[a-z]+$/.test(t) && t.length >= 6 && t.length <= 9 && lev(t, 'cluster') <= 2);
+  }
+  /** مفتاح مقارنة موحّد لاسم الكلستر: يتجاهل التشكيل والمسافات الزائدة وى/ي وة/ه وأ/إ/آ والحالة */
+  function clusterKey(v) {
+    return String(v || '').normalize('NFKD').replace(/[\u064B-\u0652\u0640]/g, '')
+      .replace(/[ىئ]/g, 'ي').replace(/ة/g, 'ه').replace(/[أإآ]/g, 'ا').replace(/ؤ/g, 'و')
+      .replace(/[.\-_,،]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+  /** يوحّد كتابة الكلستر في كل الصفوف: لكل مفتاح مقارنة نعتمد الصيغة الأكثر تكراراً. يعيد قائمة التغييرات [من، إلى، عدد] */
+  function canonClusters(rows) {
+    const groups = new Map();
+    for (const r of rows) {
+      if (!r.cl) continue;
+      const k = clusterKey(r.cl);
+      const g = groups.get(k) || groups.set(k, new Map()).get(k);
+      g.set(r.cl, (g.get(r.cl) || 0) + 1);
+    }
+    const best = new Map(), changes = [];
+    for (const [k, g] of groups) {
+      if (g.size < 2) continue;
+      const list = [...g].sort((a, b) => b[1] - a[1] || (/[ىة]/.test(a[0]) ? 1 : 0) - (/[ىة]/.test(b[0]) ? 1 : 0));
+      best.set(k, list[0][0]);
+      list.slice(1).forEach(([v, n]) => changes.push([v, list[0][0], n]));
+    }
+    if (best.size) for (const r of rows) { if (r.cl) { const c = best.get(clusterKey(r.cl)); if (c) r.cl = c; } }
+    return changes;
+  }
+
   /** XLSX = SheetJS lib, wb = workbook. Returns {rows, warnings, sheet} */
   function parseWorkbook(XLSX, wb) {
     const warnings = [];
@@ -129,12 +169,23 @@
     const head = data[hi].map(norm);
     const idx = {};
     head.forEach((h, i) => { if (COLMAP[h] && !(COLMAP[h] in idx)) idx[COLMAP[h]] = i; });
+    let clAlias = '';
+    if (!('cl' in idx)) { const i = head.findIndex(isClusterHeader); if (i >= 0) { idx.cl = i; clAlias = String(data[hi][i]).trim(); } }   // عنوان العمود مكتوب بصيغة أخرى (Clyster…)
 
     // cluster lookup sheet (ورقة1): [site id, supervisor]
     const cmap = {};
     const cn = find(n => n.trim() === 'ورقة1');
     if (cn) toRows(cn).slice(1).forEach(r => { if (r && r[0] != null && r[1]) cmap[String(r[0]).trim()] = clean(r[1]); });
 
+    // أي ورقة أخرى فيها عمود رقم موقع وعمود كلستر (بأي صيغة كتابة) تُستعمل لسدّ الفراغات فقط
+    const cmap2 = {};
+    for (const sn of wb.SheetNames) {
+      if (sn === name || sn.trim() === 'ورقة1') continue;
+      const d = toRows(sn); if (!d.length) continue;
+      const h = d[0].map(norm), ki = h.findIndex(isClusterHeader), si = h.findIndex(x => ['site id', 'site code', 'new site id', 'رقم الموقع'].includes(x));
+      if (ki < 0 || si < 0) continue;
+      for (let r = 1; r < d.length; r++) { const rw = d[r]; if (rw && rw[si] != null && rw[ki]) { const id = String(rw[si]).trim().replace(/\.0+$/, ''); if (id && !(id in cmap2)) cmap2[id] = clean(rw[ki]); } }
+    }
     const extras = readExtras(XLSX, wb, toRows, warnings);
     const rows = [], seen = new Set();
     let noId = 0, dup = 0, withExtra = 0, swapped = 0;
@@ -162,11 +213,15 @@
       // بعض الصفوف فيها خط الطول والعرض مقلوبان: نصحّحها (العراق: الطول 38–49.5، العرض 28.5–37.5)
       if (o.lon && o.lat && !(o.lon > 38 && o.lon < 49.5 && o.lat > 28.5 && o.lat < 37.5) && (o.lat > 38 && o.lat < 49.5 && o.lon > 28.5 && o.lon < 37.5)) { const t = o.lon; o.lon = o.lat; o.lat = t; swapped++; }
       if (!o.cl && cmap[id]) o.cl = cmap[id];
+      if (!o.cl && cmap2[id]) o.cl = cmap2[id];
       if (o.sev) o.sev = o.sev.toUpperCase();
       const x = extras.get(id);
       if (x && Object.keys(x).length) { o.x = x; withExtra++; }
       rows.push(o);
     }
+    if (clAlias) warnings.push('عمود الكلستر مكتوب «' + clAlias + '» وتم التعرّف عليه تلقائياً');
+    const unified = canonClusters(rows);
+    if (unified.length) warnings.push('تم توحيد كتابة الكلستر: ' + unified.slice(0, 4).map(([a, b, n]) => '«' + a + '» ← «' + b + '» (' + n + ')').join('، ') + (unified.length > 4 ? ' …' : ''));
     if (swapped) warnings.push(swapped + ' موقع كانت إحداثياته مقلوبة وتم تصحيحها');
     if (noId) warnings.push(noId + ' صف بدون رقم موقع تم تجاهله');
     if (dup) warnings.push(dup + ' رقم موقع مكرر (تم الاحتفاظ بالأول)');
@@ -205,7 +260,7 @@
     return JSON.parse(dec.decode(await gz(new Uint8Array(plain), 'u')));
   }
 
-  const api = { parseWorkbook, seal, open, b64e, b64d };
+  const api = { parseWorkbook, canonClusters, clusterKey, seal, open, b64e, b64d };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.BotCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
