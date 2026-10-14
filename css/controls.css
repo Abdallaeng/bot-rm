@@ -1,5 +1,5 @@
 /* ===== تحكمات الإدارة (js/ui/controlsUi.js): أصناف x-<مفتاح> على <html> تُخفي العنصر ===== */
-.x-showAdmin #adminBtn, .x-showSettings #settingsBtn, .x-sMultiOn #multiBtn, .x-sBrowseOn #browseBtn { display: none !important; }
+.x-showAdmin #adminBtn, .x-showMgr #mgrBtn, .x-showSettings #settingsBtn, .x-sMultiOn #multiBtn, .x-sBrowseOn #browseBtn { display: none !important; }
 .x-forceTheme #themeBtn { display: none !important; }
 .x-forceAccent #settingsBtn { display: none !important; }
 .x-sSimilar .simi { display: none !important; }
@@ -17,3 +17,4 @@
 .maint-card { max-width: 440px; width: 100%; text-align: center; padding: 28px 22px; border: 1px solid var(--line); border-radius: 22px; background: var(--bg2); display: grid; gap: 10px; justify-items: center; }
 .maint-card svg { width: 46px; height: 46px; color: var(--acc); }
 .maint-card h2 { margin: 4px 0 0; font-size: 22px; } .maint-card p { margin: 0; color: var(--mut); line-height: 1.7; } .maint-card small { color: var(--acc); font-weight: 700; }
+a.btn { text-decoration: none; }
