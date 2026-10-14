@@ -1,6 +1,6 @@
 /** لوحة المدير: مراقبة الشبكة وتقارير الاجتماعات.
  *  الدخول: كلمة المرور أول مرة ثم بصمة الجهاز (mgrAuth.js). الأرقام تُحسب في الجهاز من البيانات نفسها التي يراها التطبيق
- *  (بعد التصحيحات) فلا كتابة ولا طلبات إضافية على الخادم. النموذج في mgrModel.js والخريطة في mgrMap.js. */
+ *  (بعد التصحيحات) فلا كتابة ولا طلبات إضافية على الخادم. النموذج في mgrModel.js. */
 import { $, $$, esc, toast } from '../lib/dom.js';
 import { govName } from '../lib/labels.js';
 import { state, fetchPacket, unlockPacket, setRows, storedPacket } from '../data/store.js';
@@ -9,7 +9,6 @@ import { xlsxBlob } from '../lib/xlsxWrite.js';
 import { num, pct } from './adminUI.js';
 import { ICONS } from '../lib/icons.js';
 import { readTok, clearTok, tokenValid, pkId, passkeySupported, passkeyRegister, passkeyRemove, showLogin } from './mgrAuth.js';
-import { mountMap } from './mgrMap.js';
 import * as M from './mgrModel.js';
 const { DIMS, dimOf, shown, F, prefs, PRESETS, opOf, isHyb, tally, sorted, summary, rowsF, pred, titleOf } = M;
 
@@ -17,7 +16,7 @@ const root = $('#m');
 const J = (f) => esc(JSON.stringify(f));
 let activeDim = 'gov', pivot = { r: 'gov', c: 'sev' }, techSort = 'all';
 const lst = { preset: '', q: '', sort: 'id', dir: 1, page: 0 };
-let map = null, refreshTimer = null, lastCheck = Date.now();
+let refreshTimer = null, lastCheck = Date.now();
 
 /* ---------------- البيانات ---------------- */
 async function loadData() {
@@ -247,7 +246,6 @@ function render() {
   <div class="mg-strip"><span>المواقع <b>${num(rows.length)}</b></span><span>الهايبرد <b>${num(hy)}</b> (${pct(hy, rows.length)}%)</span><span class="s1">S1 <b>${num(sev('S1'))}</b></span><span>S2 <b>${num(sev('S2'))}</b></span><span>S3 <b>${num(sev('S3'))}</b></span><span>الفنيون <b>${num(techs)}</b></span><span>داخلية <b>${num(rows.filter((r) => r.io === 'Indoor').length)}</b></span></div>
 
   ${sec('ops', 'زين مقابل تاسك', 'الجزء المخطّط = مواقع هايبرد. اضغط أي جزء لعرض مواقعه.', `<div class="mg-ops">${opBars(S)}</div>`)}
-  ${sec('map', 'خريطة انتشار المواقع', 'نقطة لكل موقع: ممتلئة = عادي، حلقة = هايبرد. حرّك الخريطة بالسحب وكبّرها بالأزرار، واضغط نقطة لعرض الموقع.', `${key4()}<div class="mg-map" id="mgMap"></div>`)}
   ${sec('reports', 'تقارير الشبكة', 'اختر التقرير وبدّل بين المخطط والجدول. اضغط أي رقم لعرض مواقعه.', `<div class="mg-tabs" role="tablist">${DIMS.map(([id, l]) => `<button type="button" role="tab" data-d="${id}" aria-selected="${id === activeDim}">${l}</button>`).join('')}</div>
     <div class="mg-reps" data-view="${view}">${DIMS.map(([id, l]) => `<div class="mg-rep" data-r="${id}" role="tabpanel"${id === activeDim ? '' : ' hidden'}><h3 class="mg-pt">تقرير الشبكة بحسب ${l}</h3><div class="mg-vc">${key4()}${stackChart(id, rows, prefs.topN)}</div><div class="mg-vt">${matrix(id)}</div></div>`).join('')}</div>`,
     `<div class="mg-vs" role="group" aria-label="طريقة العرض"><button type="button" data-v="chart" aria-pressed="${view === 'chart'}">مخطط</button><button type="button" data-v="table" aria-pressed="${view === 'table'}">جدول</button></div>`)}
@@ -263,8 +261,6 @@ function render() {
   </div>
   <dialog id="mgDlg" class="mg-dlg"></dialog><div id="mgSl" class="sl" role="dialog" aria-modal="true" aria-label="عرض الاجتماع" hidden></div>`;
   wire();
-  map?.destroy?.(); map = null;
-  if ($('#mgMap')) map = mountMap($('#mgMap'), rowsF, (id) => openList({ id }));
 }
 function rerender() { const y = window.scrollY; render(); window.scrollTo(0, y); }
 

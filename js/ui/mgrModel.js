@@ -113,7 +113,7 @@ export function changeFeed(rows, limit = 30) {
 }
 
 /* ---------------- تفضيلات اللوحة ---------------- */
-export const SECTIONS = [['ops', 'زين مقابل تاسك'], ['map', 'خريطة الانتشار'], ['reports', 'تقارير الشبكة'], ['pivot', 'الجدول المحوري'], ['techs', 'عبء الفنيين'], ['quality', 'جودة البيانات'], ['changes', 'آخر التغييرات'], ['list', 'قوائم المواقع']];
+export const SECTIONS = [['ops', 'زين مقابل تاسك'], ['reports', 'تقارير الشبكة'], ['pivot', 'الجدول المحوري'], ['techs', 'عبء الفنيين'], ['quality', 'جودة البيانات'], ['changes', 'آخر التغييرات'], ['list', 'قوائم المواقع']];
 export const PREF_DEFAULT = { sec: Object.fromEntries(SECTIONS.map(([k]) => [k, true])), view: 'chart', topN: 12, density: 'comfy', theme: 'auto', refresh: 0, slideSec: 12, autoplay: false, pageSize: 25 };
 export const prefs = JSON.parse(JSON.stringify(PREF_DEFAULT));
 try { const s = JSON.parse(localStorage.getItem('brm_mgr_p') || '{}'); Object.assign(prefs, s, { sec: { ...PREF_DEFAULT.sec, ...(s.sec || {}) } }); } catch { /* */ }

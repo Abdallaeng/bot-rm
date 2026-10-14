@@ -148,11 +148,6 @@ body.mgr.sl-open { overflow: hidden; }
 
 .mg-strip .s1 b { color: var(--s1, #e2554f); }
 .mg-sec .pn-h { flex-wrap: wrap; } .mg-sec { scroll-margin-top: 90px; }
-.mg-map { position: relative; height: clamp(320px, 52vh, 560px); border-radius: 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surf2) 70%, transparent); overflow: hidden; touch-action: pan-y; }
-.mp-cv { display: block; cursor: grab; touch-action: none; } .mp-cv:active { cursor: grabbing; }
-.mp-tip { position: absolute; pointer-events: none; z-index: 2; padding: 6px 10px; border-radius: 9px; background: var(--tx); color: var(--bg); font-size: 12.5px; line-height: 1.5; max-width: 260px; box-shadow: 0 6px 18px rgba(0,0,0,.3); } .mp-tip[hidden] { display: none; }
-.mp-ctl { position: absolute; inset-block-start: 10px; inset-inline-start: 10px; display: grid; gap: 4px; } .mp-ctl button { width: 34px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: var(--surf); color: var(--tx); font-size: 18px; line-height: 1; }
-.mp-note { position: absolute; inset-block-end: 8px; inset-inline-end: 12px; font-size: 12px; color: var(--mut); pointer-events: none; }
 
 .mg-pvc { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 12px; } .mg-pvc label { display: grid; gap: 3px; font-size: 12px; color: var(--mut); font-weight: 600; min-width: 150px; }
 .mg-pv td.hm { background: color-mix(in srgb, var(--acc) calc(var(--h, 0) * 62%), transparent); } .mg-pv td.hm .mg-n { color: var(--tx); font-weight: 600; }
@@ -183,4 +178,4 @@ body.mgr.sl-open { overflow: hidden; }
 
 .sl-play { font-size: 15px !important; }
 @media (max-width: 640px) { .mg-fb { position: static; } .mg-feed li { grid-template-columns: 58px 1fr; } .mg-feed .v, .mg-feed time { grid-column: 1 / -1; } .mg-sr2 select { width: 100%; } }
-@media print { .mg-fb, #mgSet, .mg-map, [data-sec=list], [data-sec=changes] { display: none !important; } .mg-pv td.hm { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+@media print { .mg-fb, #mgSet, [data-sec=list], [data-sec=changes] { display: none !important; } .mg-pv td.hm { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
