@@ -1,0 +1,67 @@
+/* صفحة المدير: لوحة للاجتماعات — أرقام كبيرة، مشغّلان بلونين ثابتين، الهايبرد بنمط مخطّط (لا يعتمد على اللون وحده) */
+body.mgr { --zc: light-dark(#b0246f, #f06bb0); --tc: var(--acc); overflow-y: auto; }
+.m-root { max-width: 1180px; margin: 0 auto; padding: 18px 16px calc(40px + env(safe-area-inset-bottom)); }
+.mg-gate { margin-top: 10vh; } .mg-seal { margin: 0 auto 8px; display: block; }
+
+.mg-top { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.mg-brand { display: flex; gap: 12px; align-items: center; } .mg-brand h1 { margin: 0; font-size: 24px; line-height: 1.2; } .mg-brand small { color: var(--mut); }
+.mg-acts { display: flex; flex-wrap: wrap; gap: 8px; } .mg-acts .btn { display: inline-flex; align-items: center; gap: 6px; } .mg-acts svg { width: 17px; height: 17px; }
+
+.mg-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.mg-k { text-align: start; display: grid; gap: 2px; padding: 18px 18px 16px; border-radius: 18px; border: 1px solid var(--line); background: var(--surf); position: relative; overflow: hidden; transition: transform .18s var(--ease, ease), border-color .18s; }
+.mg-k::before { content: ''; position: absolute; inset-block: 0; inset-inline-start: 0; width: 5px; background: var(--tc); }
+.mg-k.z::before { background: var(--zc); }
+.mg-k.h::before { background: repeating-linear-gradient(135deg, var(--tc) 0 5px, transparent 5px 9px); } .mg-k.z.h::before { background: repeating-linear-gradient(135deg, var(--zc) 0 5px, transparent 5px 9px); }
+.mg-k:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--tc) 55%, var(--line)); } .mg-k.z:hover { border-color: color-mix(in srgb, var(--zc) 55%, var(--line)); }
+.mg-k small { color: var(--mut); font-size: 14px; font-weight: 600; }
+.mg-k b { font-size: clamp(36px, 5vw, 56px); line-height: 1.1; font-weight: 700; color: var(--tc); letter-spacing: -.01em; } .mg-k.z b { color: var(--zc); }
+.mg-k span { color: var(--mut); font-size: 13.5px; }
+.mg-strip { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 14px 2px 18px; color: var(--mut); font-size: 14px; } .mg-strip b { color: var(--tx); font-size: 16px; margin-inline-start: 4px; }
+
+.mg-ops { display: grid; gap: 18px; }
+.mg-ob-h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; } .mg-ob-h b { font-size: 16px; } .mg-ob-h span { color: var(--mut); font-size: 13.5px; }
+.mg-ob.z { --c: var(--zc); } .mg-ob.t { --c: var(--tc); }
+.mg-track { display: flex; height: 40px; border-radius: 11px; overflow: hidden; gap: 2px; min-width: 70px; }
+.mg-track .seg { border: 0; min-width: 0; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 14px; background: var(--c); transition: filter .15s; padding: 0; }
+.mg-track .seg.h { background: repeating-linear-gradient(135deg, var(--c) 0 7px, color-mix(in srgb, var(--c) 55%, #000) 7px 14px); }
+.mg-track .seg:hover { filter: brightness(1.15); } .mg-track .seg span { text-shadow: 0 1px 2px rgba(0,0,0,.45); overflow: hidden; }
+.mg-lg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 7px; color: var(--mut); font-size: 13px; }
+.mg-lg i { width: 14px; height: 14px; border-radius: 4px; background: var(--c); display: inline-block; margin-inline-start: 10px; } .mg-lg i.h { background: repeating-linear-gradient(135deg, var(--c) 0 3px, color-mix(in srgb, var(--c) 55%, #000) 3px 6px); }
+.mg-ins { margin: 0; padding-inline-start: 20px; display: grid; gap: 8px; line-height: 1.7; } .mg-ins .dn { color: var(--s2); font-weight: 700; }
+
+.mg-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.mg-tabs [role=tab] { border: 1px solid var(--line); background: var(--surf2); border-radius: 99px; padding: 7px 16px; font-weight: 600; font-size: 14px; color: var(--mut); transition: background .15s, color .15s; }
+.mg-tabs [aria-selected=true] { background: var(--acc); border-color: var(--acc); color: var(--accfg); }
+.mg-pt { margin: 0 0 10px; font-size: 16px; display: none; }
+.mg-tbl th, .mg-tbl td { text-align: center; white-space: nowrap; } .mg-tbl td.nm, .mg-tbl th:first-child { text-align: start; font-weight: 600; }
+.mg-tbl th.gz, .mg-tbl td.gz { color: var(--zc); } .mg-tbl th.gt, .mg-tbl td.gt { color: var(--tc); }
+.mg-tbl td.gz, .mg-tbl td.gt { background: color-mix(in srgb, currentColor 5%, transparent); } .mg-tbl td .mg-n { color: inherit; }
+.mg-tbl td.tot { font-weight: 700; } .mg-tbl tfoot td { font-weight: 700; border-top: 2px solid var(--line); }
+.mg-n { border: 0; background: none; font: inherit; font-weight: inherit; padding: 4px 10px; border-radius: 8px; color: var(--tx); min-width: 44px; } .mg-n:hover { background: color-mix(in srgb, var(--acc) 16%, transparent); text-decoration: underline; }
+.mg-n.hy { font-style: italic; }
+.mg-bw { width: 120px; min-width: 90px; } .mg-bw i { display: block; height: 8px; border-radius: 4px; background: linear-gradient(90deg, var(--zc), var(--tc)); opacity: .75; margin-inline-start: auto; }
+.mg-foot { text-align: center; color: var(--mut); font-size: 12.5px; margin-top: 22px; }
+
+.mg-dlg { width: min(980px, calc(100vw - 20px)); } .mg-lbar { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; } .mg-lbar .inp { flex: 1; min-width: 200px; height: 44px; }
+.mg-dlg .tbl2 td, .mg-dlg .tbl2 th { white-space: nowrap; } .mg-dlg td:nth-child(2) { white-space: normal; min-width: 220px; }
+
+@media (max-width: 900px) { .mg-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .mg-brand h1 { font-size: 20px; } .mg-k { padding: 14px; } }
+
+/* وضع العرض: خط أكبر وإخفاء أزرار التحكم الثانوية */
+body.present .mg-acts .btn:not(#mgPresent) { display: none; }
+body.present .m-root { max-width: none; padding-inline: 4vw; } body.present .mg-k b { font-size: clamp(56px, 9vw, 120px); } body.present .mg-k small { font-size: 20px; } body.present .mg-k span { font-size: 17px; }
+body.present .mg-tbl { font-size: 19px; } body.present .mg-strip { font-size: 18px; } body.present .mg-ins { font-size: 19px; } body.present .mg-track { height: 56px; }
+
+@media (prefers-reduced-motion: reduce) { .mg-k, .mg-tabs [role=tab], .mg-track .seg { transition: none; } .mg-k:hover { transform: none; } }
+
+/* الطباعة: خلفية بيضاء، كل التقارير متتالية، بلا أزرار */
+@media print {
+  body.mgr { background: #fff !important; color: #111 !important; --tx: #111; --mut: #444; --line: #bbb; --surf: #fff; --surf2: #fff; --zc: #a01c62; --tc: #0d6479; }
+  .mg-acts, .mg-tabs, .toast, .mg-bw, dialog { display: none !important; }
+  .mg-rep[hidden] { display: block !important; } .mg-rep { break-inside: avoid; margin-bottom: 18px; } .mg-pt { display: block; }
+  .pn, .mg-k { break-inside: avoid; border-color: #bbb; } .m-root { max-width: none; padding: 0; }
+  .mg-k:hover { transform: none; } .mg-n { color: inherit; } .mg-track .seg { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .mg-kpis { grid-template-columns: repeat(4, 1fr); }
+}
+.mg-rep .tbl-wrap { max-height: none; overflow-y: visible; overflow-x: auto; }

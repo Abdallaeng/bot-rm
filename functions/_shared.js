@@ -92,24 +92,32 @@ export const getCtl = (env) => memo('ctl', 5, async () => { const d = (await env
 /** تصحيحات العرض { v: إصدار, list } — تُقرأ كل 5 ثوانٍ كحد أقصى لكل عملية */
 export const getCorr = (env) => memo('corr', 5, async () => (await env.DATA.get('corr', 'json')) || { v: 0, list: [] });
 
-export async function signToken(env, user, hours = SESSION_HOURS) {
-  const payload = b64u(new TextEncoder().encode(JSON.stringify({ u: user, iat: Date.now(), exp: Date.now() + hours * 3600e3 })));
+export async function signToken(env, user, hours = SESSION_HOURS, role = 'a') {
+  const payload = b64u(new TextEncoder().encode(JSON.stringify({ u: user, r: role, iat: Date.now(), exp: Date.now() + hours * 3600e3 })));
   const sig = await crypto.subtle.sign('HMAC', await secretKey(env), new TextEncoder().encode(payload));
   return `${payload}.${b64u(sig)}`;
 }
 
 /** يتحقق من «Authorization: Bearer <token>» */
 export async function authed(request, env) {
-  if (!env.DATA) return false;
+  return (await checkToken(request, env)) === 'a';
+}
+
+/** يتحقق من التوقيع والانتهاء ويعيد دور صاحب الرمز: 'a' إدارة · 'm' مدير (صفحة التقارير فقط) · '' غير صالح.
+ *  رمز المدير لا يصلح أبداً لعمليات الإدارة (authed تقبل 'a' فقط). */
+export async function checkToken(request, env) {
+  if (!env.DATA) return '';
   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
   const [payload, sig] = token.split('.');
-  if (!payload || !sig) return false;
+  if (!payload || !sig) return '';
   try {
-    if (!(await crypto.subtle.verify('HMAC', await secretKey(env), unb64u(sig), new TextEncoder().encode(payload)))) return false;
-    const { exp, iat } = JSON.parse(new TextDecoder().decode(unb64u(payload)));
+    if (!(await crypto.subtle.verify('HMAC', await secretKey(env), unb64u(sig), new TextEncoder().encode(payload)))) return '';
+    const { exp, iat, r } = JSON.parse(new TextDecoder().decode(unb64u(payload)));
+    if (!(exp > Date.now())) return '';
+    if (r === 'm') return 'm';
     const pwv = await memo('pwv', 30, async () => Number(await env.DATA.get('pwv')) || 0);       // تغيير كلمة المرور يُبطل الجلسات السابقة
-    return exp > Date.now() && iat >= pwv;
-  } catch { return false; }
+    return iat >= pwv ? 'a' : '';
+  } catch { return ''; }
 }
 
 /** يوم بتوقيت بغداد (UTC+3) بصيغة YYYYMMDD */
