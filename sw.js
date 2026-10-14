@@ -1,7 +1,7 @@
 /* Service worker — يعمل دون إنترنت:
    · ملفات الموقع والبيانات: الشبكة أولاً (مهلة قصيرة) ثم النسخة المحفوظة
    · الخطوط: من الكاش فوراً وتُحدَّث في الخلفية */
-const VERSION = 'botrm-v28';
+const VERSION = 'botrm-v29';
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 const NETWORK_TIMEOUT = 3000;
 const SHELL = [

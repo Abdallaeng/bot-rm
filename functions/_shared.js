@@ -35,6 +35,11 @@ async function secretKey(env) {
   return (KEY = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']));
 }
 
+/** توقيع/تحقق من نص حر بسرّ الخادم (يُستعمل لتحدّي WebAuthn بلا تخزين) */
+export const hmacB64 = async (env, text) => b64u(await crypto.subtle.sign('HMAC', await secretKey(env), new TextEncoder().encode(text)));
+export const b64uEnc = b64u;
+export const b64uDec = unb64u;
+
 /** هاش كلمة المرور الحالية: المخزّن في KV بعد تغييرها، وإلا الافتراضي (يُحفظ 30 ثانية في الذاكرة) */
 export const currentHash = (env) => memo('adminhash', 30, async () => (await env.DATA.get('adminhash')) || ADMIN_HASH);
 
